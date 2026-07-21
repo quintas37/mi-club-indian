@@ -20,39 +20,31 @@ let sesionesActivas = {};
 // 🚀 CREACIÓN DEL SERVIDOR NATIVO
 // ==========================================
 const server = http.createServer((req, res) => {
+    // 1. Si piden la raíz o viene vacío, asegurar que apunte a index.html
+    let urlSolicitada = (req.url === '/' || req.url === '') ? 'index.html' : req.url;
     
-    // 1. Si entran a la raíz '/', buscar 'index.html' sin la diagonal inicial
-    let urlSolicitada = req.url === '/' ? 'index.html' : req.url;
+    // 2. Limpiar CUALQUIER diagonal inicial para evitar rutas rotas en Linux
+    if (urlSolicitada.startsWith('/')) {
+        urlSolicitada = urlSolicitada.substring(1);
+    }
     
-    // Limpia la diagonal inicial de cualquier otro archivo (ej. /styles.css -> styles.css)
-    let rutaLimpia = urlSolicitada.startsWith('/') ? urlSolicitada.slice(1) : urlSolicitada;
+    // 3. Construir la ruta combinando la carpeta public
+    let rutaArchivo = path.join(PUBLIC_DIR, urlSolicitada);
     
-    // 2. Construir la ruta física correcta combinando la carpeta public y la ruta limpia
-    let rutaArchivo = path.join(PUBLIC_DIR, rutaLimpia);
-    
-    // 3. Detectar la extensión para enviar el tipo de archivo correcto
+    // 4. Forzar el tipo de contenido básico
     let extname = path.extname(rutaArchivo);
     let contentType = 'text/html; charset=utf-8';
-     
-    switch (extname) {
-        case '.js': contentType = 'text/javascript'; break;
-        case '.css': contentType = 'text/css'; break;
-        case '.json': contentType = 'application/json'; break;
-        case '.png': contentType = 'image/png'; break;
-        case '.jpg': case '.jpeg': contentType = 'image/jpeg'; break;
-    }
+    if (extname === '.js') contentType = 'text/javascript';
+    if (extname === '.css') contentType = 'text/css';
 
-    // 4. Leer el archivo físico de la carpeta 'public' y enviarlo al navegador
+    // 5. Intentar leer el archivo físico de la carpeta 'public'
     fs.readFile(rutaArchivo, (error, contenido) => {
         if (error) {
-            if (error.code === 'ENOENT') {
-                res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-                res.end('<h1>404 - Archivo no encontrado en la plataforma de la Tribu Indian</h1>');
-            } else {
-                res.writeHead(500);
-                res.end(`Error de servidor: ${error.code}`);
-            }
+            // Si falla en producción, te imprimimos un mensaje personalizado del club para saber qué ruta falló
+            res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(`<h1>404 Club Indian</h1><p>No encontramos el archivo: <b>public/${urlSolicitada}</b></p>`);
         } else {
+            // Éxito: Servir el archivo al navegador
             res.writeHead(200, { 'Content-Type': contentType });
             res.end(contenido, 'utf-8');
         }

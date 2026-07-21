@@ -267,7 +267,7 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
                        const imagenBase64 = cuerpo.toString('base64');
 
                         // 🚀 Petición directa y correcta a la API de Imgbb
-                        const urlImgbbApi = `https://imgbb.com${process.env.IMGBB_API_KEY}`;
+                        const urlImgbbApi = `https://api.imgbb.com/1/upload?key=${process.env.IMGBB_API_KEY}`;
                         const formularioFormData = new URLSearchParams();
                         formularioFormData.append('image', imagenBase64);
 

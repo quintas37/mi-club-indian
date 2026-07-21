@@ -16,78 +16,18 @@ let galeriaViajes = fs.existsSync(RUTA_DB_VIAJES) ? JSON.parse(fs.readFileSync(R
 let cronogramaRodadas = fs.existsSync(RUTA_DB_RODADAS) ? JSON.parse(fs.readFileSync(RUTA_DB_RODADAS, 'utf-8')) : [];
 let sesionesActivas = {};
 
-   
- // ==========================================
-// 🏍️ CREACIÓN DEL SERVIDOR NATIVO
-// ==========================================
-const server = http.createServer((req, res) => {
-    
-    // 🌐 1. DECLARAR LA VARIABLE DE LA RUTA ENTRANTE
-    let urlSolicitada = (req.url === '/' || req.url === '') ? 'index.html' : req.url;
-    if (urlSolicitada.startsWith('/')) {
-        urlSolicitada = urlSolicitada.substring(1);
-    }
-
-    // 🛡️ 2. CONTROL DE SESIONES Y ROLES (Tu lógica de bikers)
-    const tokenCliente = req.headers['x-biker-token'];
-    const usuarioSesionActiva = sesionesActivas[tokenCliente];
-    
-    const datosBikerNavegando = usuarioSesionActiva ? baseDatosBikers.find(u => u.id === usuarioSesionActiva.id) : null;
-    const esPresidente = datosBikerNavegando && datosBikerNavegando.rango === 'Presidente';
-    const esOficialConPoderes = datosBikerNavegando && ['Vicepresidente', 'Sargento de Armas', 'Capitán de Ruta', 'Tesorero'].includes(datosBikerNavegando.rango);
-    const tienePermisosModerador = esPresidente || esOficialConPoderes;
-
-    // 📁 3. CONSTRUIR LA RUTA COMBINANDO LA CARPETA PUBLIC
-    let rutaArchivo = path.join(PUBLIC_DIR, urlSolicitada);
-    
-    // 🔍 4. FORZAR EL TIPO DE CONTENIDO BÁSICO
-    let extname = path.extname(rutaArchivo);
-    let contentType = 'text/html; charset=utf-8';
-    if (extname === '.js') contentType = 'text/javascript';
-    if (extname === '.css') contentType = 'text/css';
-
-    // 📬 5. INTENTAR LEER EL ARCHIVO FÍSICO Y ENVIARLO
-    fs.readFile(rutaArchivo, (error, contenido) => {
-        if (error) {
-            res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-            res.end(`<h1>404 Club Indian</h1><p>No encontramos el archivo: <b>public/${urlSolicitada}</b></p>`);
-        } else {
-            res.writeHead(200, { 'Content-Type': contentType });
-            res.end(contenido, 'utf-8');
-        }
-    });
-});
-
-
-// Inicializar la escucha del puerto asignado por Render
-server.listen(PORT, () => {
-    console.log(`Motor de la Tribu Indian encendido en el puerto ${PORT}`);
-});
-
-
 function guardarEnDiscoD() {
     fs.writeFileSync(RUTA_DB_USUARIOS, JSON.stringify(baseDatosBikers, null, 2), 'utf-8');
     fs.writeFileSync(RUTA_DB_VIAJES, JSON.stringify(galeriaViajes, null, 2), 'utf-8');
     fs.writeFileSync(RUTA_DB_RODADAS, JSON.stringify(cronogramaRodadas, null, 2), 'utf-8');
 }
 
-function servirArchivoEstatico(res, urlPath) {
-    let filePath = path.join(PUBLIC_DIR, urlPath === '/' ? 'index.html' : urlPath);
-    let extname = path.extname(filePath);
-    let contentType = 'text/html';
-    if (extname === '.css') contentType = 'text/css';
-    if (extname === '.js') contentType = 'application/javascript';
-    if (extname === '.png') contentType = 'image/png';
-    if (extname === '.jpg' || extname === '.jpeg') contentType = 'image/jpeg';
-    if (extname === '.mp4') contentType = 'video/mp4';
-
-    fs.readFile(filePath, (err, content) => {
-        if (err) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('404 Not Found'); }
-        else { res.writeHead(200, { 'Content-Type': contentType }); res.end(content, 'utf-8'); }
-    });
-}
-
+// ==========================================
+// 🏍️ CREACIÓN DEL SERVIDOR ÚNICO NATIVO
+// ==========================================
 const server = http.createServer((req, res) => {
+    
+    // 🛡️ A) CONTROL DE SESIONES Y ROLES GENERALES
     const tokenCliente = req.headers['x-biker-token'];
     const usuarioSesionActiva = sesionesActivas[tokenCliente];
     
@@ -95,6 +35,40 @@ const server = http.createServer((req, res) => {
     const esPresidente = datosBikerNavegando && datosBikerNavegando.rango === 'Presidente';
     const esOficialConPoderes = datosBikerNavegando && ['Vicepresidente', 'Sargento de Armas', 'Capitán de Ruta', 'Tesorero'].includes(datosBikerNavegando.rango);
     const tienePermisosModerador = esPresidente || esOficialConPoderes;
+
+    /* ========================================================================= */
+    /* 🌐 RUTA DE SERVICIO DE FRONTEND (PUBLIC) PARA LINUX / RENDER              */
+    /* ========================================================================= */
+    if (!req.url.startsWith('/api/')) {
+        let urlSolicitada = (req.url === '/' || req.url === '') ? 'index.html' : req.url;
+        if (urlSolicitada.startsWith('/')) {
+            urlSolicitada = urlSolicitada.substring(1);
+        }
+
+        let filePath = path.join(PUBLIC_DIR, urlSolicitada);
+        let extname = path.extname(filePath);
+        let contentType = 'text/html; charset=utf-8';
+        if (extname === '.css') contentType = 'text/css';
+        if (extname === '.js') contentType = 'text/javascript';
+        if (extname === '.png') contentType = 'image/png';
+        if (extname === '.jpg' || extname === '.jpeg') contentType = 'image/jpeg';
+        if (extname === '.mp4') contentType = 'video/mp4';
+
+        fs.readFile(filePath, (err, content) => {
+            if (err) {
+                res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(`<h1>404 Club Indian</h1><p>No encontramos el recurso: <b>public/${urlSolicitada}</b></p>`);
+            } else {
+                res.writeHead(200, { 'Content-Type': contentType });
+                res.end(content, 'utf-8');
+            }
+        });
+        return; // Detiene la ejecución aquí para que no interfiera con las APIs
+    }
+
+    /* ========================================================================= */
+    /* 🛠️ ENRUTAMIENTO DE LAS APIs NATIVAS DEL CLUB DE MOTOS                     */
+    /* ========================================================================= */
 
     /* ================= API NATIVA: OBTENER TODOS LOS USUARIOS ================= */
     if (req.url === '/api/bikers' && req.method === 'GET') {
@@ -133,7 +107,8 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
             const data = JSON.parse(body);
             cronogramaRodadas.push({
-                id: Date.now(), titulo: data.titulo, destino: data.destino, fecha: data.fecha, puntoEncuentro: data.punto, creadoPor: datosBikerNavegando.nombreCompleto,
+                id: Date.now(), titulo: data.titulo, destino: data.destino, fecha: data.fecha, 
+                puntoEncuentro: data.punto, creadoPor: datosBikerNavegando.nombreCompleto,
                 asistentesBikers: []
             });
             guardarEnDiscoD();
@@ -171,14 +146,13 @@ const server = http.createServer((req, res) => {
             const correoLimpio = data.correo.trim().toLowerCase();
             const usuarioExiste = baseDatosBikers.some(u => u.usuario === usuarioLimpio || u.correo === correoLimpio);
             if (usuarioExiste) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "Ya existe." })); }
-
             const salt = crypto.randomBytes(16).toString('hex');
             const hash = crypto.scryptSync(data.password, salt, 64).toString('hex');
             const rangoAsignado = baseDatosBikers.length === 0 ? 'Presidente' : 'Miembro de la Tribu';
-
             baseDatosBikers.push({
                 id: Date.now(), usuario: usuarioLimpio, correo: correoLimpio, passwordHash: hash, salt: salt,
-                nombreCompleto: data.nombreCompleto.trim(), moto: data.moto || 'Indian Scout', rango: rangoAsignado, aprobado: baseDatosBikers.length === 0
+                nombreCompleto: data.nombreCompleto.trim(), moto: data.moto || 'Indian Scout', 
+                rango: rangoAsignado, aprobado: baseDatosBikers.length === 0
             });
             guardarEnDiscoD();
             res.writeHead(201, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true }));
@@ -193,28 +167,24 @@ const server = http.createServer((req, res) => {
             const data = JSON.parse(body); const biker = baseDatosBikers.find(u => u.usuario === data.usuario.trim().toLowerCase());
             if (!biker) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "No existe." })); }
             if (!biker.aprobado) { res.writeHead(403, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "En revisión." })); }
-
             const hashVerificar = crypto.scryptSync(data.password, biker.salt, 64).toString('hex');
-            if (hashVerificar !== biker.passwordHash) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "Contraseña incorrecta." })); }
-
-            const tokenSesion = crypto.randomBytes(16).toString('hex');
-            sesionesActivas[tokenSesion] = { id: biker.id, nombre: biker.nombreCompleto };
-            res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true, token: tokenSesion }));
-        });
-        return;
-    }
-
-    /* ================= API NATIVA: VERIFICAR SESIÓN ================= */
-    if (req.url === '/api/auth/estado' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        if (datosBikerNavegando) {
-            return res.end(JSON.stringify({ logueado: true, nombre: datosBikerNavegando.nombreCompleto, rango: datosBikerNavegando.rango }));
-        } else { return res.end(JSON.stringify({ logueado: false })); }
-    }
-
-    /* ================= ACCIONES DE ADMINISTRACIÓN NATIVAS ================= */
-    if (req.url === '/api/admin/aprobar' && req.method === 'POST') {
-        let body = ''; req.on('data', chunk => { body += chunk.toString(); });
+if (hashVerificar !== biker.passwordHash) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "Contraseña incorrecta." })); }
+const tokenSesion = crypto.randomBytes(16).toString('hex');
+sesionesActivas[tokenSesion] = { id: biker.id, nombre: biker.nombreCompleto };
+res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true, token: tokenSesion }));
+});
+return;
+}
+/* ================= API NATIVA: VERIFICAR SESIÓN ================= */
+if (req.url === '/api/auth/estado' && req.method === 'GET') {
+res.writeHead(200, { 'Content-Type': 'application/json' });
+if (datosBikerNavegando) {
+return res.end(JSON.stringify({ logueado: true, nombre: datosBikerNavegando.nombreCompleto, rango: datosBikerNavegando.rango }));
+} else { return res.end(JSON.stringify({ logueado: false })); }
+}
+/* ================= ACCIONES DE ADMINISTRACIÓN NATIVAS ================= */
+if (req.url === '/api/admin/aprobar' && req.method === 'POST') {
+let body = ''; req.on('data', chunk => { body += chunk.toString(); });
 req.on('end', () => {
 const data = JSON.parse(body); const biker = baseDatosBikers.find(u => u.usuario === data.usuario);
 if (biker) { biker.aprobado = true; guardarEnDiscoD(); }
@@ -274,7 +244,7 @@ req.on('end', () => {
 const bufferCompleto = Buffer.concat(bodyBuffer);
 const contentTypeHeader = req.headers['content-type'] || ''; const boundaryMatch = contentTypeHeader.match(/boundary=(.+)/);
 if (!boundaryMatch) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
-let boundaryLimpio = boundaryMatch.replace(/["']/g, '');
+let boundaryLimpio = boundaryMatch[1].replace(/["']/g, '');
 if (!boundaryLimpio.startsWith('--')) boundaryLimpio = '--' + boundaryLimpio;
 const boundaryBuffer = Buffer.from(boundaryLimpio);
 let posiciones = []; let index = bufferCompleto.indexOf(boundaryBuffer);
@@ -309,8 +279,6 @@ res.writeHead(201, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 });
 return;
 }
-servirArchivoEstatico(res, req.url);
 });
-
-
+// 🔥 ENCENDIDO DEL SERVIDOR AL FINAL ABSOLUTO
 server.listen(PORT, () => console.log("🏍️ Servidor Indian activo en puerto " + PORT + "\n"));

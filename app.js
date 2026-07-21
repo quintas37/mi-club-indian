@@ -2,47 +2,57 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { Pool } = require('pg'); // 🐘 Activamos el módulo oficial de PostgreSQL
+const { Pool } = require('pg');
 
 const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = __dirname; // Servir archivos directamente desde tu raíz
+const PUBLIC_DIR = __dirname;
 
 // 🐘 CONFIGURACIÓN DEL POOL DE CONEXIÓN A POSTGRESQL EN LA NUBE
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false // Requerido para los certificados de Render
+        rejectUnauthorized: false
     }
 });
 
-// Mensaje de verificación en la consola de Render al encender el servidor
+// Comprobar conexión inicial en la consola de Render
 pool.query('SELECT NOW()', (err, res) => {
-    if (err) {
-        console.error('❌ Error crítico de enlace con PostgreSQL Cloud:', err.stack);
-    } else {
-        console.log('🐘 Conexión exitosa y activa a la base de datos indian_club en Render.');
-    }
+    if (err) console.error('❌ Error crítico con PostgreSQL Cloud:', err.stack);
+    else console.log('🐘 Conexión exitosa a la base de datos indian_club en Render.');
 });
 
-let sesionesActivas = {}; // Las sesiones se validan en la memoria temporal del servidor
-
+let sesionesActivas = {};
 
 // ==========================================
 // 🏍️ CREACIÓN DEL SERVIDOR ÚNICO NATIVO
 // ==========================================
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
     
-    // 🛡️ A) CONTROL DE SESIONES Y ROLES GENERALES
+    // 🛡️ A) CONTROL DE SESIONES Y ROLES GENERALES (ASÍNCRONO DESDE POSTGRESQL)
     const tokenCliente = req.headers['x-biker-token'];
     const usuarioSesionActiva = sesionesActivas[tokenCliente];
     
-    const datosBikerNavegando = usuarioSesionActiva ? baseDatosBikers.find(u => u.id === usuarioSesionActiva.id) : null;
-    const esPresidente = datosBikerNavegando && datosBikerNavegando.rango === 'Presidente';
-    const esOficialConPoderes = datosBikerNavegando && ['Vicepresidente', 'Sargento de Armas', 'Capitán de Ruta', 'Tesorero'].includes(datosBikerNavegando.rango);
-    const tienePermisosModerador = esPresidente || esOficialConPoderes;
+    let datosBikerNavegando = null;
+    let esPresidente = false;
+    let esOficialConPoderes = false;
+    let tienePermisosModerador = false;
 
-      /* ========================================================================= */
-    /* 🌐 RUTA DE SERVICIO DE FRONTEND PARA LA RAÍZ                              */
+    if (usuarioSesionActiva) {
+        try {
+            const userCheck = await pool.query('SELECT * FROM usuarios WHERE id = $1', [usuarioSesionActiva.id]);
+            if (userCheck.rows.length > 0) {
+                datosBikerNavegando = userCheck.rows[0];
+                esPresidente = datosBikerNavegando.rango === 'Presidente';
+                esOficialConPoderes = ['Vicepresidente', 'Sargento de Armas', 'Capitán de Ruta', 'Tesorero'].includes(datosBikerNavegando.rango);
+                tienePermisosModerador = esPresidente || esOficialConPoderes;
+            }
+        } catch (err) {
+            console.error('Error al validar sesión en BD:', err);
+        }
+    }
+
+    /* ========================================================================= */
+    /* 🌐 RUTA DE SERVICIO DE FRONTEND (PUBLIC) PARA LINUX / RENDER              */
     /* ========================================================================= */
     if (!req.url.startsWith('/api/')) {
         let urlSolicitada = (req.url === '/' || req.url === '') ? 'index.html' : req.url;
@@ -50,7 +60,6 @@ const server = http.createServer((req, res) => {
             urlSolicitada = urlSolicitada.substring(1);
         }
 
-        // 🛡️ Seguridad: Evita que usuarios de internet descarguen tu código del servidor o las bases de datos
         if (urlSolicitada === 'app.js' || urlSolicitada.endsWith('.json')) {
             res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
             return res.end('<h1>403 Acceso Denegado</h1>');
@@ -63,6 +72,7 @@ const server = http.createServer((req, res) => {
         if (extname === '.js') contentType = 'text/javascript';
         if (extname === '.png') contentType = 'image/png';
         if (extname === '.jpg' || extname === '.jpeg') contentType = 'image/jpeg';
+        if (extname === '.mp4') contentType = 'video/mp4';
 
         fs.readFile(filePath, (err, content) => {
             if (err) {
@@ -73,184 +83,169 @@ const server = http.createServer((req, res) => {
                 res.end(content, 'utf-8');
             }
         });
-        return; 
+        return;
     }
 
     /* ========================================================================= */
-    /* 🛠️ ENRUTAMIENTO DE LAS APIs NATIVAS DEL CLUB DE MOTOS                     */
+    /* 🛠️ ENRUTAMIENTO DE LAS APIs EN POSTGRESQL CLOUD                           */
     /* ========================================================================= */
 
-    /* ================= API NATIVA: OBTENER TODOS LOS USUARIOS ================= */
+    /* ================= API: OBTENER TODOS LOS USUARIOS ================= */
     if (req.url === '/api/bikers' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        if (tienePermisosModerador) {
-            return res.end(JSON.stringify({ success: true, bikers: baseDatosBikers, modoAdmin: true, soyPresidente: esPresidente, soyOficial: esOficialConPoderes }));
-        } else {
-            return res.end(JSON.stringify({ success: true, bikers: baseDatosBikers.filter(b => b.aprobado), modoAdmin: false }));
+        try {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            if (tienePermisosModerador) {
+                const result = await pool.query('SELECT id, usuario, correo, nombre_completo, moto, rango, aprobado FROM usuarios ORDER BY id DESC');
+                return res.end(JSON.stringify({ success: true, bikers: result.rows, modoAdmin: true, soyPresidente: esPresidente, soyOficial: esOficialConPoderes }));
+            } else {
+                const result = await pool.query('SELECT id, usuario, nombre_completo, moto, rango FROM usuarios WHERE aprobado = true ORDER BY id DESC');
+                return res.end(JSON.stringify({ success: true, bikers: result.rows, modoAdmin: false }));
+            }
+        } catch (err) {
+            res.writeHead(500); return res.end(JSON.stringify({ success: false }));
         }
     }
 
-    /* ================= API NATIVA: FEED DE CRÓNICAS MULTIMEDIA ================= */
+    /* ================= API: FEED DE CRÓNICAS MULTIMEDIA ================= */
     if (req.url === '/api/viajes' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ success: true, viajes: galeriaViajes, modoAdmin: tienePermisosModerador, idBikerLogueado: usuarioSesionActiva ? usuarioSesionActiva.id : null }));
+        try {
+            const result = await pool.query('SELECT * FROM viajes_galeria ORDER BY id DESC');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ success: true, viajes: result.rows, modoAdmin: tienePermisosModerador, idBikerLogueado: usuarioSesionActiva ? usuarioSesionActiva.id : null }));
+        } catch (err) {
+            res.writeHead(500); return res.end(JSON.stringify({ success: false }));
+        }
     }
 
-    /* ================= API NATIVA: OBTENER CALENDARIO DE RODADAS ================= */
+    /* ================= API: OBTENER CALENDARIO DE RODADAS ================= */
     if (req.url === '/api/rodadas' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        const rodadasMapeadas = cronogramaRodadas.map(r => {
-            const listaIds = r.asistentesBikers || [];
-            const nombresAsistentes = listaIds.map(id => {
-                const b = baseDatosBikers.find(u => u.id === id);
-                return b ? b.nombreCompleto : 'Biker';
-            });
-            return { ...r, nombresAsistentes };
-        });
-        return res.end(JSON.stringify({ success: true, rodadas: rodadasMapeadas, modoAdmin: tienePermisosModerador, idBikerLogueado: usuarioSesionActiva ? usuarioSesionActiva.id : null }));
+        try {
+            const result = await pool.query('SELECT * FROM rodadas_calendario ORDER BY id DESC');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ success: true, rodadas: result.rows, modoAdmin: tienePermisosModerador, idBikerLogueado: usuarioSesionActiva ? usuarioSesionActiva.id : null }));
+        } catch (err) {
+            res.writeHead(500); return res.end(JSON.stringify({ success: false }));
+        }
     }
 
-    /* ================= API NATIVA: CREAR NUEVA RODADA ================= */
+    /* ================= API: CREAR NUEVA RODADA ================= */
     if (req.url === '/api/rodadas/nueva' && req.method === 'POST') {
         if (!tienePermisosModerador) { res.writeHead(403, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
         let body = ''; req.on('data', chunk => { body += chunk.toString(); });
-        req.on('end', () => {
-            const data = JSON.parse(body);
-            cronogramaRodadas.push({
-                id: Date.now(), titulo: data.titulo, destino: data.destino, fecha: data.fecha, 
-                puntoEncuentro: data.punto, creadoPor: datosBikerNavegando.nombreCompleto,
-                asistentesBikers: []
-            });
-            guardarEnDiscoD();
-            res.writeHead(201, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true }));
-        });
-        return;
-    }
-
-    /* ================= API NATIVA: UNIRSE A LA RODADA (RSVP) ================= */
-    if (req.url === '/api/rodadas/unirse' && req.method === 'POST') {
-        if (!usuarioSesionActiva) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
-        let body = ''; req.on('data', chunk => { body += chunk.toString(); });
-        req.on('end', () => {
-            const data = JSON.parse(body);
-            const rodada = cronogramaRodadas.find(r => r.id === parseInt(data.idRodada));
-            if (rodada) {
-                if (!rodada.asistentesBikers) rodada.asistentesBikers = [];
-                const idx = rodada.asistentesBikers.indexOf(usuarioSesionActiva.id);
-                if (idx === -1) { rodada.asistentesBikers.push(usuarioSesionActiva.id); } 
-                else { rodada.asistentesBikers.splice(idx, 1); }
-                guardarEnDiscoD();
-                res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: true }));
+        req.on('end', async () => {
+            try {
+                const data = JSON.parse(body);
+                await pool.query(
+                    'INSERT INTO rodadas_calendario (titulo, destino, fecha) VALUES ($1, $2, $3)',
+                    [data.titulo, data.destino, data.fecha]
+                );
+                res.writeHead(201, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true }));
+            } catch (err) {
+                res.writeHead(500); res.end(JSON.stringify({ success: false }));
             }
-            res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: false }));
         });
         return;
     }
 
-    /* ================= API NATIVA: REGISTRO DE USUARIOS ================= */
+    /* ================= API: REGISTRO DE USUARIOS ================= */
     if (req.url === '/api/auth/registrar' && req.method === 'POST') {
         let body = ''; req.on('data', chunk => { body += chunk.toString('utf8'); });
-        req.on('end', () => {
-            const data = JSON.parse(body);
-            const usuarioLimpio = data.usuario.trim().toLowerCase().replace(/\s+/g, '');
-            const correoLimpio = data.correo.trim().toLowerCase();
-            const usuarioExiste = baseDatosBikers.some(u => u.usuario === usuarioLimpio || u.correo === correoLimpio);
-            if (usuarioExiste) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "Ya existe." })); }
-            const salt = crypto.randomBytes(16).toString('hex');
-            const hash = crypto.scryptSync(data.password, salt, 64).toString('hex');
-            const rangoAsignado = baseDatosBikers.length === 0 ? 'Presidente' : 'Miembro de la Tribu';
-            baseDatosBikers.push({
-                id: Date.now(), usuario: usuarioLimpio, correo: correoLimpio, passwordHash: hash, salt: salt,
-                nombreCompleto: data.nombreCompleto.trim(), moto: data.moto || 'Indian Scout', 
-                rango: rangoAsignado, aprobado: baseDatosBikers.length === 0
-            });
-            guardarEnDiscoD();
-            res.writeHead(201, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true }));
+        req.on('end', async () => {
+            try {
+                const data = JSON.parse(body);
+                const usuarioLimpio = data.usuario.trim().toLowerCase().replace(/\s+/g, '');
+                const correoLimpio = data.correo.trim().toLowerCase();
+                
+                const userCheck = await pool.query('SELECT id FROM usuarios WHERE usuario = $1 OR correo = $2', [usuarioLimpio, correoLimpio]);
+                if (userCheck.rows.length > 0) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "Ya existe el usuario o correo." })); }
+                
+                const countCheck = await pool.query('SELECT COUNT(*) FROM usuarios');
+                const esPrimerUsuario = parseInt(countCheck.rows[0].count) === 0;
+                
+                const salt = crypto.randomBytes(16).toString('hex');
+                const hash = crypto.scryptSync(data.password, salt, 64).toString('hex');
+                const rangoAsignado = esPrimerUsuario ? 'Presidente' : 'Miembro de la Tribu';
+                const idUnico = Date.now();
+
+                await pool.query(
+                    'INSERT INTO usuarios (id, usuario, correo, password_hash, salt, nombre_completo, moto, rango, aprobado) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+                    [idUnico, usuarioLimpio, correoLimpio, hash, salt, data.nombreCompleto.trim(), data.moto || 'Indian Scout', rangoAsignado, esPrimerUsuario]
+                );
+                
+                res.writeHead(201, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true }));
+            } catch (err) {
+                res.writeHead(500); res.end(JSON.stringify({ success: false, error: "Error de servidor." }));
+            }
         });
         return;
     }
 
-    /* ================= API NATIVA: INICIO DE SESIÓN ================= */
+    /* ================= API: INICIO DE SESIÓN ================= */
     if (req.url === '/api/auth/login' && req.method === 'POST') {
         let body = ''; req.on('data', chunk => { body += chunk.toString(); });
-        req.on('end', () => {
-            const data = JSON.parse(body); const biker = baseDatosBikers.find(u => u.usuario === data.usuario.trim().toLowerCase());
-            if (!biker) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "No existe." })); }
-            if (!biker.aprobado) { res.writeHead(403, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "En revisión." })); }
-            const hashVerificar = crypto.scryptSync(data.password, biker.salt, 64).toString('hex');
-if (hashVerificar !== biker.passwordHash) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "Contraseña incorrecta." })); }
+        req.on('end', async () => {
+            try {
+                const data = JSON.parse(body);
+                const result = await pool.query('SELECT * FROM usuarios WHERE usuario = $1', [data.usuario.trim().toLowerCase()]);
+                if (result.rows.length === 0) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "No existe el usuario." })); }
+                
+                const biker = result.rows[0];
+if (!biker.aprobado) { res.writeHead(403, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "Tu cuenta está en revisión por la Mesa Directiva." })); }
+const hashVerificar = crypto.scryptSync(data.password, biker.salt, 64).toString('hex');
+if (hashVerificar !== biker.password_hash) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "Contraseña incorrecta." })); }
 const tokenSesion = crypto.randomBytes(16).toString('hex');
-sesionesActivas[tokenSesion] = { id: biker.id, nombre: biker.nombreCompleto };
+sesionesActivas[tokenSesion] = { id: biker.id, nombre: biker.nombre_completo };
 res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true, token: tokenSesion }));
+} catch (err) {
+res.writeHead(500); res.end(JSON.stringify({ success: false }));
+}
 });
 return;
 }
-/* ================= API NATIVA: VERIFICAR SESIÓN ================= */
+/* ================= API: VERIFICAR SESIÓN ================= */
 if (req.url === '/api/auth/estado' && req.method === 'GET') {
 res.writeHead(200, { 'Content-Type': 'application/json' });
 if (datosBikerNavegando) {
-return res.end(JSON.stringify({ logueado: true, nombre: datosBikerNavegando.nombreCompleto, rango: datosBikerNavegando.rango }));
+return res.end(JSON.stringify({ logueado: true, nombre: datosBikerNavegando.nombre_completo, rango: datosBikerNavegando.rango }));
 } else { return res.end(JSON.stringify({ logueado: false })); }
 }
-/* ================= ACCIONES DE ADMINISTRACIÓN NATIVAS ================= */
+/* ================= ACCIONES DE ADMINISTRACIÓN ================= */
 if (req.url === '/api/admin/aprobar' && req.method === 'POST') {
 let body = ''; req.on('data', chunk => { body += chunk.toString(); });
-req.on('end', () => {
-const data = JSON.parse(body); const biker = baseDatosBikers.find(u => u.usuario === data.usuario);
-if (biker) { biker.aprobado = true; guardarEnDiscoD(); }
+req.on('end', async () => {
+try {
+const data = JSON.parse(body);
+await pool.query('UPDATE usuarios SET aprobado = true WHERE usuario = $1', [data.usuario]);
 res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true }));
+} catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
 if (req.url === '/api/admin/cambiar-rango' && req.method === 'POST') {
 let body = ''; req.on('data', chunk => { body += chunk.toString(); });
-req.on('end', () => {
-const data = JSON.parse(body); const biker = baseDatosBikers.find(u => u.usuario === data.usuario);
-if (biker) { biker.rango = data.nuevoRango; guardarEnDiscoD(); }
+req.on('end', async () => {
+try {
+const data = JSON.parse(body);
+await pool.query('UPDATE usuarios SET rango = $1 WHERE usuario = $2', [data.nuevoRango, data.usuario]);
 res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true }));
+} catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
 if (req.url === '/api/admin/baja' && req.method === 'POST') {
 let body = ''; req.on('data', chunk => { body += chunk.toString(); });
-req.on('end', () => {
-const data = JSON.parse(body); baseDatosBikers = baseDatosBikers.filter(u => u.usuario !== data.usuario); guardarEnDiscoD();
+req.on('end', async () => {
+try {
+const data = JSON.parse(body);
+await pool.query('DELETE FROM usuarios WHERE usuario = $1', [data.usuario]);
 res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true }));
+} catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
-if (req.url === '/api/admin/borrar-rodada' && req.method === 'POST') {
-let body = ''; req.on('data', chunk => { body += chunk.toString(); });
-req.on('end', () => {
-const data = JSON.parse(body); cronogramaRodadas = cronogramaRodadas.filter(r => r.id !== parseInt(data.idRodada)); guardarEnDiscoD();
-res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true }));
-}); return;
-}
-if (req.url === '/api/admin/borrar-cronica' && req.method === 'POST') {
-let body = ''; req.on('data', chunk => { body += chunk.toString(); });
-req.on('end', () => {
-const data = JSON.parse(body); galeriaViajes = galeriaViajes.filter(v => v.id !== parseInt(data.idViaje)); guardarEnDiscoD();
-res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true }));
-}); return;
-}
-/* ================= API NATIVA: REACCIÓN RIDE UP 👍 ================= */
-if (req.url === '/api/viajes/ride-up' && req.method === 'POST') {
-if (!usuarioSesionActiva) return res.end(JSON.stringify({ success: false }));
-let body = ''; req.on('data', chunk => { body += chunk.toString(); });
-req.on('end', () => {
-const data = JSON.parse(body); const viaje = galeriaViajes.find(v => v.id === parseInt(data.idViaje));
-if (viaje) {
-if (!viaje.likesBikers) viaje.likesBikers = [];
-const idx = viaje.likesBikers.indexOf(usuarioSesionActiva.id);
-if (idx === -1) { viaje.likesBikers.push(usuarioSesionActiva.id); }
-else { viaje.likesBikers.splice(idx, 1); }
-guardarEnDiscoD();
-res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true }));
-}
-}); return;
-}
-/* ================= API NATIVA: SUBIR CRÓNICA (FOTOS Y VIDEOS) ================= */
+/* ================= API: SUBIR CRÓNICA (POSTGRESQL CLOUD) ================= */
 if (req.url === '/api/viajes/subir' && req.method === 'POST') {
 if (!usuarioSesionActiva) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
 let bodyBuffer = []; req.on('data', chunk => { bodyBuffer.push(chunk); });
-req.on('end', () => {
+req.on('end', async () => {
+try {
 const bufferCompleto = Buffer.concat(bodyBuffer);
 const contentTypeHeader = req.headers['content-type'] || ''; const boundaryMatch = contentTypeHeader.match(/boundary=(.+)/);
 if (!boundaryMatch) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
@@ -266,8 +261,7 @@ const indiceCuerpo = parteBuffer.indexOf('\r\n\r\n'); if (indiceCuerpo === -1) c
 const cabecera = parteBuffer.subarray(0, indiceCuerpo).toString('utf-8'); const cuerpo = parteBuffer.subarray(indiceCuerpo + 4, parteBuffer.length - 2);
 if (cabecera.includes('name="fotoViaje"')) {
 if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
-if (cuerpo.length > 15728640) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "Excede 15MB." })); }
-const esVideo = cabecera.toLowerCase().includes('video/') || cabecera.toLowerCase().includes('.mp4') || cabecera.toLowerCase().includes('.mov');
+const esVideo = cabecera.toLowerCase().includes('video/') || cabecera.toLowerCase().includes('.mp4');
 const extFinal = esVideo ? '.mp4' : '.jpg';
 const fotoNombreUnico = 'biker-media-' + Date.now() + '-' + Math.round(Math.random() * 1000) + extFinal;
 fs.writeFileSync(path.join(PUBLIC_DIR, 'uploads', 'viajes', fotoNombreUnico), cuerpo);
@@ -279,13 +273,15 @@ if (posName !== -1) { campos[cabecera.substring(posName + 6, cabecera.indexOf('"
 }
 if (fotosGuardadas.length === 0) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
 const dominioActivo = req.headers.host;
-galeriaViajes.push({
-id: Date.now(), titulo_viaje: campos.titulo || 'Rodada', descripcion: campos.descripcion,
-ruta_origen_destino: campos.ruta, urls_fotos: fotosGuardadas.map(f => 'https://' + dominioActivo + f),
-nombre_completo: usuarioSesionActiva.nombre, likesBikers: []
-});
-guardarEnDiscoD();
+const urlsFinales = fotosGuardadas.map(f => 'https://' + dominioActivo + f);
+await pool.query(
+'INSERT INTO viajes_galeria (id, titulo_viaje, descripcion, ruta_origen_destino, urls_fotos, nombre_completo) VALUES ($1, $2, $3, $4, $5, $6)',
+[Date.now(), campos.titulo || 'Rodada', campos.descripcion, campos.ruta, urlsFinales, usuarioSesionActiva.nombre]
+);
 res.writeHead(201, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true }));
+} catch (err) {
+console.error(err); res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: false }));
+}
 });
 return;
 }

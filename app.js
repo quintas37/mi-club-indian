@@ -38,8 +38,6 @@ let sesionesActivas = {};
             res.end(contenido, 'utf-8');
         }
     });
-});
-
 
 // Inicializar la escucha del puerto asignado por Render
 server.listen(PORT, () => {

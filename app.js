@@ -22,7 +22,7 @@ let sesionesActivas = {};
 const server = http.createServer((req, res) => {
     
     // 1. Si entran a la raíz '/', redirigir internamente a 'index.html'
-    let urlSolicitada = req.url === '/' ? '/index.html' : req.url;
+    let urlSolicitada = req.url === '/' ? 'index.html' : req.url;
     
     // 2. Construir la ruta física real dentro de la carpeta 'public'
     let rutaArchivo = path.join(PUBLIC_DIR, urlSolicitada);

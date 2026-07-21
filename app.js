@@ -239,7 +239,7 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 } catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
-    /* ================= API: SUBIR CRÓNICA PERMANENTE (IMGBB CLOUD) ================= */
+       /* ================= API: SUBIR CRÓNICA PERMANENTE (IMGBB CLOUD) ================= */
     if (req.url === '/api/viajes/subir' && req.method === 'POST') {
         if (!usuarioSesionActiva) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
         let bodyBuffer = []; req.on('data', chunk => { bodyBuffer.push(chunk); });
@@ -263,23 +263,24 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
                     if (cabecera.includes('name="fotoViaje"')) {
                         if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
                         
-                        // ☁️ Convertir la imagen a Base64 requerido por la API de Imgbb
-                         const imagenBase64 = cuerpo.toString('base64');
-                        
-                         // 🚀 Petición directa a Imgbb usando el API KEY de Render
-                        const urlImgbbApi = `https://imgbb.com{process.env.IMGBB_API_KEY}`;
+                       // ☁️ Convertir la imagen a Base64 requerido por la API de Imgbb
+                       const imagenBase64 = cuerpo.toString('base64');
+
+                        // 🚀 Petición directa y correcta a la API de Imgbb
+                        const urlImgbbApi = `https://imgbb.com${process.env.IMGBB_API_KEY}`;
                         const formularioFormData = new URLSearchParams();
                         formularioFormData.append('image', imagenBase64);
 
                         const respuestaApi = await fetch(urlImgbbApi, {
-                            method: 'POST',
+                         method: 'POST',
                             body: formularioFormData,
                             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
                         });
+
                         
                         const resultadoJson = await respuestaApi.json();
                         if (resultadoJson && resultadoJson.success) {
-                            urlsImgbb.push(resultadoJson.data.url); // Enlace https permanente de Imgbb
+                            urlsImgbb.push(resultadoJson.data.url);
                         } else {
                             throw new Error('Fallo en la respuesta de Imgbb');
                         }
@@ -291,7 +292,7 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
                 
                 if (urlsImgbb.length === 0) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
                 
-                             // 📝 Insertar en tu tabla de PostgreSQL con las URLs permanentes de Imgbb
+                // 📝 Insertar en tu tabla de PostgreSQL con las URLs de Imgbb
                 await pool.query(
                     'INSERT INTO viajes_galeria (id, titulo_viaje, descripcion, ruta_origen_destino, urls_fotos, nombre_completo) VALUES ($1, $2, $3, $4, $5, $6)',
                     [Date.now(), campos.titulo || 'Rodada', campos.descripcion, campos.ruta, urlsImgbb, usuarioSesionActiva.nombre]
@@ -305,6 +306,7 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
         });
         return;
     }
+
 
     // SI LA RUTA NO COINCIDE CON NINGUNA API O ARCHIVO:
     res.writeHead(404, { 'Content-Type': 'text/plain' });

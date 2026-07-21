@@ -292,7 +292,7 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
                 
                 if (urlsImgbb.length === 0) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
                 
-                // 📝 Insertar en tu tabla de PostgreSQL con las URLs permanentes de Imgbb
+                             // 📝 Insertar en tu tabla de PostgreSQL con las URLs permanentes de Imgbb
                 await pool.query(
                     'INSERT INTO viajes_galeria (id, titulo_viaje, descripcion, ruta_origen_destino, urls_fotos, nombre_completo) VALUES ($1, $2, $3, $4, $5, $6)',
                     [Date.now(), campos.titulo || 'Rodada', campos.descripcion, campos.ruta, urlsImgbb, usuarioSesionActiva.nombre]
@@ -303,10 +303,6 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
                 console.error('Error al subir a Imgbb/PostgreSQL:', err);
                 res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: false }));
             }
-        });
-        return;
-    }   
-        // ... (aquí termina el bloque de la API de ImgBB que pegaste)
         });
         return;
     }

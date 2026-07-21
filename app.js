@@ -21,13 +21,16 @@ let sesionesActivas = {};
 // ==========================================
 const server = http.createServer((req, res) => {
     
-    // 1. Si entran a la raíz '/', redirigir internamente a 'index.html'
+    // 1. Si entran a la raíz '/', buscar 'index.html' sin la diagonal inicial
     let urlSolicitada = req.url === '/' ? 'index.html' : req.url;
     
-    // 2. Construir la ruta física real dentro de la carpeta 'public'
-    let rutaArchivo = path.join(PUBLIC_DIR, urlSolicitada);
+    // Limpia la diagonal inicial de cualquier otro archivo (ej. /styles.css -> styles.css)
+    let rutaLimpia = urlSolicitada.startsWith('/') ? urlSolicitada.slice(1) : urlSolicitada;
     
-    // 3. Detectar la extensión para enviar el Content-Type correcto al navegador
+    // 2. Construir la ruta física correcta combinando la carpeta public y la ruta limpia
+    let rutaArchivo = path.join(PUBLIC_DIR, rutaLimpia);
+    
+    // 3. Detectar la extensión para enviar el tipo de archivo correcto
     let extname = path.extname(rutaArchivo);
     let contentType = 'text/html; charset=utf-8';
     
@@ -39,28 +42,23 @@ const server = http.createServer((req, res) => {
         case '.jpg': case '.jpeg': contentType = 'image/jpeg'; break;
     }
 
-    // 4. Leer el archivo correspondiente de la carpeta 'public' y enviarlo
+    // 4. Leer el archivo físico de la carpeta 'public' y enviarlo al navegador
     fs.readFile(rutaArchivo, (error, contenido) => {
         if (error) {
-            // Si el archivo físico no existe, podría ser una llamada a tus rutas de la API de Indian Motorcycle
             if (error.code === 'ENOENT') {
-                
-                // Muestra un error formal del Club si intentan buscar un archivo HTML/CSS que no existe
                 res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
                 res.end('<h1>404 - Archivo no encontrado en la plataforma de la Tribu Indian</h1>');
-            
             } else {
-                // Error crítico del servidor
                 res.writeHead(500);
                 res.end(`Error de servidor: ${error.code}`);
             }
         } else {
-            // Éxito: Envía el archivo index.html o los estilos correspondientes
             res.writeHead(200, { 'Content-Type': contentType });
             res.end(contenido, 'utf-8');
         }
     });
 });
+
 
 // Inicializar la escucha del puerto asignado por Render
 server.listen(PORT, () => {

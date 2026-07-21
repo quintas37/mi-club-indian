@@ -14,7 +14,59 @@ const RUTA_DB_RODADAS = path.join(__dirname, 'rodadas.json');
 let baseDatosBikers = fs.existsSync(RUTA_DB_USUARIOS) ? JSON.parse(fs.readFileSync(RUTA_DB_USUARIOS, 'utf-8')) : [];
 let galeriaViajes = fs.existsSync(RUTA_DB_VIAJES) ? JSON.parse(fs.readFileSync(RUTA_DB_VIAJES, 'utf-8')) : [];
 let cronogramaRodadas = fs.existsSync(RUTA_DB_RODADAS) ? JSON.parse(fs.readFileSync(RUTA_DB_RODADAS, 'utf-8')) : [];
-let sesionesActivas = {}; 
+let sesionesActivas = {};
+
+// ==========================================
+// 🚀 CREACIÓN DEL SERVIDOR NATIVO
+// ==========================================
+const server = http.createServer((req, res) => {
+    
+    // 1. Si entran a la raíz '/', redirigir internamente a 'index.html'
+    let urlSolicitada = req.url === '/' ? '/index.html' : req.url;
+    
+    // 2. Construir la ruta física real dentro de la carpeta 'public'
+    let rutaArchivo = path.join(PUBLIC_DIR, urlSolicitada);
+    
+    // 3. Detectar la extensión para enviar el Content-Type correcto al navegador
+    let extname = path.extname(rutaArchivo);
+    let contentType = 'text/html; charset=utf-8';
+    
+    switch (extname) {
+        case '.js': contentType = 'text/javascript'; break;
+        case '.css': contentType = 'text/css'; break;
+        case '.json': contentType = 'application/json'; break;
+        case '.png': contentType = 'image/png'; break;
+        case '.jpg': case '.jpeg': contentType = 'image/jpeg'; break;
+    }
+
+    // 4. Leer el archivo correspondiente de la carpeta 'public' y enviarlo
+    fs.readFile(rutaArchivo, (error, contenido) => {
+        if (error) {
+            // Si el archivo físico no existe, podría ser una llamada a tus rutas de la API de Indian Motorcycle
+            if (error.code === 'ENOENT') {
+                
+                // Muestra un error formal del Club si intentan buscar un archivo HTML/CSS que no existe
+                res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end('<h1>404 - Archivo no encontrado en la plataforma de la Tribu Indian</h1>');
+            
+            } else {
+                // Error crítico del servidor
+                res.writeHead(500);
+                res.end(`Error de servidor: ${error.code}`);
+            }
+        } else {
+            // Éxito: Envía el archivo index.html o los estilos correspondientes
+            res.writeHead(200, { 'Content-Type': contentType });
+            res.end(contenido, 'utf-8');
+        }
+    });
+});
+
+// Inicializar la escucha del puerto asignado por Render
+server.listen(PORT, () => {
+    console.log(`Motor de la Tribu Indian encendido en el puerto ${PORT}`);
+});
+
 
 function guardarEnDiscoD() {
     fs.writeFileSync(RUTA_DB_USUARIOS, JSON.stringify(baseDatosBikers, null, 2), 'utf-8');

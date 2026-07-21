@@ -2,25 +2,30 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { Pool } = require('pg'); // 🐘 Activamos el módulo oficial de PostgreSQL
 
 const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = __dirname;
+const PUBLIC_DIR = __dirname; // Servir archivos directamente desde tu raíz
 
-// 📁 INFRAESTRUCTURA DE RESPALDO PERMANENTE NATIVA EN EL DISCO
-const RUTA_DB_USUARIOS = path.join(__dirname, 'usuarios.json');
-const RUTA_DB_VIAJES = path.join(__dirname, 'viajes.json');
-const RUTA_DB_RODADAS = path.join(__dirname, 'rodadas.json');
+// 🐘 CONFIGURACIÓN DEL POOL DE CONEXIÓN A POSTGRESQL EN LA NUBE
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false // Requerido para los certificados de Render
+    }
+});
 
-let baseDatosBikers = fs.existsSync(RUTA_DB_USUARIOS) ? JSON.parse(fs.readFileSync(RUTA_DB_USUARIOS, 'utf-8')) : [];
-let galeriaViajes = fs.existsSync(RUTA_DB_VIAJES) ? JSON.parse(fs.readFileSync(RUTA_DB_VIAJES, 'utf-8')) : [];
-let cronogramaRodadas = fs.existsSync(RUTA_DB_RODADAS) ? JSON.parse(fs.readFileSync(RUTA_DB_RODADAS, 'utf-8')) : [];
-let sesionesActivas = {};
+// Mensaje de verificación en la consola de Render al encender el servidor
+pool.query('SELECT NOW()', (err, res) => {
+    if (err) {
+        console.error('❌ Error crítico de enlace con PostgreSQL Cloud:', err.stack);
+    } else {
+        console.log('🐘 Conexión exitosa y activa a la base de datos indian_club en Render.');
+    }
+});
 
-function guardarEnDiscoD() {
-    fs.writeFileSync(RUTA_DB_USUARIOS, JSON.stringify(baseDatosBikers, null, 2), 'utf-8');
-    fs.writeFileSync(RUTA_DB_VIAJES, JSON.stringify(galeriaViajes, null, 2), 'utf-8');
-    fs.writeFileSync(RUTA_DB_RODADAS, JSON.stringify(cronogramaRodadas, null, 2), 'utf-8');
-}
+let sesionesActivas = {}; // Las sesiones se validan en la memoria temporal del servidor
+
 
 // ==========================================
 // 🏍️ CREACIÓN DEL SERVIDOR ÚNICO NATIVO

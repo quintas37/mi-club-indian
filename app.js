@@ -33,7 +33,7 @@ const server = http.createServer((req, res) => {
     // 3. Detectar la extensión para enviar el tipo de archivo correcto
     let extname = path.extname(rutaArchivo);
     let contentType = 'text/html; charset=utf-8';
-    
+     
     switch (extname) {
         case '.js': contentType = 'text/javascript'; break;
         case '.css': contentType = 'text/css'; break;

@@ -240,51 +240,74 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 } catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
-/* ================= API: SUBIR CRÓNICA (POSTGRESQL CLOUD) ================= */
-if (req.url === '/api/viajes/subir' && req.method === 'POST') {
-if (!usuarioSesionActiva) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
-let bodyBuffer = []; req.on('data', chunk => { bodyBuffer.push(chunk); });
-req.on('end', async () => {
-try {
-const bufferCompleto = Buffer.concat(bodyBuffer);
-const contentTypeHeader = req.headers['content-type'] || ''; const boundaryMatch = contentTypeHeader.match(/boundary=(.+)/);
-if (!boundaryMatch) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
-let boundaryLimpio = boundaryMatch[1].replace(/["']/g, '');
-if (!boundaryLimpio.startsWith('--')) boundaryLimpio = '--' + boundaryLimpio;
-const boundaryBuffer = Buffer.from(boundaryLimpio);
-let posiciones = []; let index = bufferCompleto.indexOf(boundaryBuffer);
-while (index !== -1) { posiciones.push(index); index = bufferCompleto.indexOf(boundaryBuffer, index + boundaryBuffer.length); }
-let campos = {}; let fotosGuardadas = [];
-for (let i = 0; i < posiciones.length - 1; i++) {
-const inicio = posiciones[i] + boundaryBuffer.length + 2; const fin = posiciones[i+1]; const parteBuffer = bufferCompleto.subarray(inicio, fin);
-const indiceCuerpo = parteBuffer.indexOf('\r\n\r\n'); if (indiceCuerpo === -1) continue;
-const cabecera = parteBuffer.subarray(0, indiceCuerpo).toString('utf-8'); const cuerpo = parteBuffer.subarray(indiceCuerpo + 4, parteBuffer.length - 2);
-if (cabecera.includes('name="fotoViaje"')) {
-if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
-const esVideo = cabecera.toLowerCase().includes('video/') || cabecera.toLowerCase().includes('.mp4');
-const extFinal = esVideo ? '.mp4' : '.jpg';
-const fotoNombreUnico = 'biker-media-' + Date.now() + '-' + Math.round(Math.random() * 1000) + extFinal;
-fs.writeFileSync(path.join(PUBLIC_DIR, 'uploads', 'viajes', fotoNombreUnico), cuerpo);
-fotosGuardadas.push('/uploads/viajes/' + fotoNombreUnico);
-} else {
-const posName = cabecera.indexOf('name="');
-if (posName !== -1) { campos[cabecera.substring(posName + 6, cabecera.indexOf('"', posName + 6)).trim()] = cuerpo.toString('utf-8').trim(); }
-}
-}
-if (fotosGuardadas.length === 0) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
-const dominioActivo = req.headers.host;
-const urlsFinales = fotosGuardadas.map(f => 'https://' + dominioActivo + f);
-await pool.query(
-'INSERT INTO viajes_galeria (id, titulo_viaje, descripcion, ruta_origen_destino, urls_fotos, nombre_completo) VALUES ($1, $2, $3, $4, $5, $6)',
-[Date.now(), campos.titulo || 'Rodada', campos.descripcion, campos.ruta, urlsFinales, usuarioSesionActiva.nombre]
-);
-res.writeHead(201, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true }));
-} catch (err) {
-console.error(err); res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: false }));
-}
-});
-return;
-}
-});
+    /* ================= API: SUBIR CRÓNICA PERMANENTE (IMGBB CLOUD) ================= */
+    if (req.url === '/api/viajes/subir' && req.method === 'POST') {
+        if (!usuarioSesionActiva) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
+        let bodyBuffer = []; req.on('data', chunk => { bodyBuffer.push(chunk); });
+        req.on('end', async () => {
+            try {
+                const bufferCompleto = Buffer.concat(bodyBuffer);
+                const contentTypeHeader = req.headers['content-type'] || ''; const boundaryMatch = contentTypeHeader.match(/boundary=(.+)/);
+                if (!boundaryMatch) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
+                let boundaryLimpio = boundaryMatch[1].replace(/["']/g, '');
+                if (!boundaryLimpio.startsWith('--')) boundaryLimpio = '--' + boundaryLimpio;
+                const boundaryBuffer = Buffer.from(boundaryLimpio);
+                let posiciones = []; let index = bufferCompleto.indexOf(boundaryBuffer);
+                while (index !== -1) { posiciones.push(index); index = bufferCompleto.indexOf(boundaryBuffer, index + boundaryBuffer.length); }
+                let campos = {}; let urlsImgbb = [];
+                
+                for (let i = 0; i < posiciones.length - 1; i++) {
+                    const inicio = posiciones[i] + boundaryBuffer.length + 2; const fin = posiciones[i+1]; const parteBuffer = bufferCompleto.subarray(inicio, fin);
+                    const indiceCuerpo = parteBuffer.indexOf('\r\n\r\n'); if (indiceCuerpo === -1) continue;
+                    const cabecera = parteBuffer.subarray(0, indiceCuerpo).toString('utf-8'); const cuerpo = parteBuffer.subarray(indiceCuerpo + 4, parteBuffer.length - 2);
+                    
+                    if (cabecera.includes('name="fotoViaje"')) {
+                        if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
+                        
+                        // ☁️ Convertir la imagen a Base64 requerido por la API de Imgbb
+                        const imagenBase64 = cuerpo.toString('base64');
+                        
+                        // 🚀 Petición directa a Imgbb usando el API KEY de Render
+                        const urlImgbbApi = `https://imgbb.com{process.env.IMGBB_API_KEY}`;
+                        const formularioFormData = new URLSearchParams();
+                        formularioFormData.append('image', imagenBase64);
+
+                        const respuestaApi = await fetch(urlImgbbApi, {
+                            method: 'POST',
+                            body: formularioFormData,
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                        });
+                        
+                        const resultadoJson = await respuestaApi.json();
+                        if (resultadoJson && resultadoJson.success) {
+                            urlsImgbb.push(resultadoJson.data.url); // Enlace https permanente de Imgbb
+                        } else {
+                            throw new Error('Fallo en la respuesta de Imgbb');
+                        }
+                    } else {
+                        const posName = cabecera.indexOf('name="');
+                        if (posName !== -1) { campos[cabecera.substring(posName + 6, cabecera.indexOf('"', posName + 6)).trim()] = cuerpo.toString('utf-8').trim(); }
+                    }
+                }
+                
+                if (urlsImgbb.length === 0) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
+                
+                // 📝 Insertar en tu tabla de PostgreSQL con las URLs permanentes de Imgbb
+                await pool.query(
+                    'INSERT INTO viajes_galeria (id, titulo_viaje, descripcion, ruta_origen_destino, urls_fotos, nombre_completo) VALUES ($1, $2, $3, $4, $5, $6)',
+                    [Date.now(), campos.titulo || 'Rodada', campos.descripcion, campos.ruta, urlsImgbb, usuarioSesionActiva.nombre]
+                );
+                
+                res.writeHead(201, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: true }));
+            } catch (err) {
+                console.error('Error al subir a Imgbb/PostgreSQL:', err);
+                res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: false }));
+            }
+        });
+        return;
+    }
+
+
+    
 // 🔥 ENCENDIDO DEL SERVIDOR AL FINAL ABSOLUTO
 server.listen(PORT, () => console.log("🏍️ Servidor Indian activo en puerto " + PORT + "\n"));

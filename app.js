@@ -305,9 +305,19 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
             }
         });
         return;
+    }   
+        // ... (aquí termina el bloque de la API de ImgBB que pegaste)
+        });
+        return;
     }
 
+    // SI LA RUTA NO COINCIDE CON NINGUNA API O ARCHIVO:
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Ruta no encontrada');
+});
 
-    
-// 🔥 ENCENDIDO DEL SERVIDOR AL FINAL ABSOLUTO
-server.listen(PORT, () => console.log("🏍️ Servidor Indian activo en puerto " + PORT + "\n"));
+// ESCUCHAR EN EL PUERTO CORRESPONDIENTE
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Servidor corriendo en el puerto ${PORT}`);
+});

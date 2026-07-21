@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+documentdocument.addEventListener('DOMContentLoaded', () => {
     const tokenGuardado = localStorage.getItem('biker_session_token');
 
     async function verificarMenuNavegacion() {
@@ -99,14 +99,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 let fotosArray = v.urls_fotos && v.urls_fotos.length > 0 ? v.urls_fotos : (v.url_foto ? [v.url_foto] : ['/uploads/viajes/default.jpg']);
                 const totalFotos = fotosArray.length;
                 
-                // 🛠️ DETECTOR MULTIMEDIA INTELIGENTE: Pinta <video> si termina en .mp4, de lo contrario una <img>
-                const fotosHtml = fotosArray.map(url => {
-                    if (url.toLowerCase().endsWith('.mp4')) {
-                        return '<video src="' + url + '" class="video-carrusel-item" controls muted loop playsinline></video>';
-                    } else {
-                        return '<img src="' + url + '" class="foto-carrusel-item" alt="Foto">';
-                    }
-                }).join('');
+                    // 🛠️ DETECTOR MULTIMEDIA OPTIMIZADO: Asegura la visibilidad del primer elemento (índice 0)
+        const fotosHtml = fotosArray.map((url, index) => {
+            // Limpiar comillas o llaves raras si PostgreSQL las devuelve como texto
+            const urlLimpia = url.replace(/[{}"']/g, '').trim();
+            const claseActive = index === 0 ? ' active' : '';
+
+            if (urlLimpia.toLowerCase().endsWith('.mp4')) {
+                return '<video src="' + urlLimpia + '" class="video-carrusel-item' + claseActive + '" controls></video>';
+            } else {
+                return '<img src="' + urlLimpia + '" class="foto-carrusel-item' + claseActive + '" alt="Foto">';
+            }
+        }).join('');
+
 
                 const botonBorrar = data.modoAdmin ? '<button class="btn-borrar-cronica" data-id="' + v.id + '">🗑️ Eliminar</button>' : '';
                 const listaLikes = v.likesBikers || [];

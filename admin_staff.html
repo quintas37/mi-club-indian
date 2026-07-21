@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>Panel de Control - Indian CDMX</title>
+ <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+ 
+ <header class="navbar" style="position: static; margin-bottom: 20px;">
+     <div class="logo-contenedor">
+         <div class="logo-texto">
+             <h1 style="font-size:1.1rem;">Panel de Control Privado</h1>
+             <span style="font-size:0.7rem; color:#aaa;">Mesa Directiva & Presidentes</span>
+         </div>
+     </div>
+     <nav class="nav-enlaces">
+         <a href="/index.html" style="font-size: 0.8rem; font-weight: 700;">🏠 Ver Página de Inicio</a>
+         <button onclick="cerrarSesion()" class="btn-marca" style="padding:8px 16px; font-size:11px; border-radius: 20px;">Cerrar Sesión</button>
+     </nav>
+ </header>
+
+ <div style="max-width: 700px; margin: 30px auto; padding: 0 20px;">
+     <div style="background-color: var(--color-tarjeta); border: 1px solid rgba(96, 25, 38, 0.2); padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.4);">
+         
+         <!-- 🎂 MENÚ DE PESTAÑAS EXCLUSIVO PARA LA MESA DIRECTIVA -->
+         <div class="contenedor-tabs-staff">
+             <button class="btn-tab-staff activo" id="tabCronicaBtn">📸 Compartir Rodada</button>
+             <button class="btn-tab-staff" id="tabRodadaBtn">🗓️ Agendar Rodada</button>
+         </div>
+
+         <!-- ================= SECCIÓN 1: SUBIR FOTOS Y CRÓNICAS ================= -->
+         <div id="seccionFormCronica">
+             <p class="texto-elegante" style="font-size: 1.6rem; margin: 0 0 20px 0;">Publica tus fotos y bitácora de viaje</p>
+             <form id="formSubirViaje" enctype="multipart/form-data">
+                 <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:15px;">
+                     <label style="font-size:12px; color:var(--color-crema); text-transform: uppercase;">Título de la Ruta:</label>
+                     <input type="text" id="viajeTitulo" required style="padding:12px; background:#0e0406; border:1px solid #3d1018; color:#fff; border-radius:6px;">
+                 </div>
+                 <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:15px;">
+                     <label style="font-size:12px; color:var(--color-crema); text-transform: uppercase;">Origen -> Destino:</label>
+                     <input type="text" id="viajeRuta" required placeholder="Ej. CDMX -> Valle de Bravo" style="padding:12px; background:#0e0406; border:1px solid #3d1018; color:#fff; border-radius:6px;">
+                 </div>
+                 <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:15px;">
+                     <label style="font-size:12px; color:var(--color-crema); text-transform: uppercase;">Fecha del Viaje:</label>
+                     <input type="date" id="viajeFecha" style="padding:12px; background:#0e0406; border:1px solid #3d1018; color:#fff; border-radius:6px;">
+                 </div>
+                 <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:15px;">
+                     <label style="font-size:12px; color:var(--color-crema); text-transform: uppercase;">Tu Reseña:</label>
+                     <textarea id="viajeDescripcion" rows="4" style="padding:12px; background:#0e0406; border:1px solid #3d1018; color:#fff; border-radius:6px; resize:none; font-family:inherit;"></textarea>
+                 </div>
+                 <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:20px;">
+                     <label style="font-size:12px; color:var(--color-crema); text-transform: uppercase;">Fotografías Oficiales (Selecciona hasta 5):</label>
+                     <input type="file" id="viajeFoto" name="fotoViaje" accept="image/*" multiple required style="padding:10px; background:#000; border:1px solid #3d1018; color:#fff; border-radius:6px;">
+                 </div>
+                 <button type="submit" class="btn-marca" style="width:100%;">🏍️ Publicar Crónica</button>
+             </form>
+             <div id="resultadoSubida" style="margin-top:15px; text-align:center;"></div>
+         </div>
+
+         <!-- ================= SECCIÓN 2: AGENDAR NUEVAS SALIDAS (OCULTA POR DEFECTO) ================= -->
+         <div id="seccionFormRodada" style="display: none;">
+             <p class="texto-elegante" style="font-size: 1.6rem; margin: 0 0 20px 0;">Publica la ruta en el calendario oficial</p>
+             <form id="formNuevaRodada">
+                 <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:15px;">
+                     <label style="font-size:12px; color:var(--color-crema); text-transform: uppercase;">Nombre de la Rodada:</label>
+                     <input type="text" id="rodadaTitulo" required placeholder="Ej. Rodada del Sol" style="padding:12px; background:#0e0406; border:1px solid #3d1018; color:#fff; border-radius:6px; font-family: inherit;">
+                 </div>
+                 <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:15px;">
+                     <label style="font-size:12px; color:var(--color-crema); text-transform: uppercase;">Destino de la Ruta:</label>
+                     <input type="text" id="rodadaDestino" required placeholder="Ej. Peña de Bernal, Qro." style="padding:12px; background:#0e0406; border:1px solid #3d1018; color:#fff; border-radius:6px; font-family: inherit;">
+                 </div>
+                 <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:15px;">
+                     <label style="font-size:12px; color:var(--color-crema); text-transform: uppercase;">Fecha de Salida:</label>
+                     <input type="text" id="rodadaFecha" required placeholder="Ej. Domingo 26 de Julio - 8:00 AM" style="padding:12px; background:#0e0406; border:1px solid #3d1018; color:#fff; border-radius:6px; font-family: inherit;">
+                 </div>
+                 <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:20px;">
+                     <label style="font-size:12px; color:var(--color-crema); text-transform: uppercase;">Punto de Encuentro y Kms:</label>
+                     <textarea id="rodadaPunto" rows="2" required placeholder="Ej. Indian CDMX (Insurgentes Sur) - 240 Kms" style="padding:12px; background:#0e0406; border:1px solid #3d1018; color:#fff; border-radius:6px; resize:none; font-family:inherit;"></textarea>
+                 </div>
+                 <button type="submit" class="btn-marca" style="width:100%;">📅 Publicar en Calendario</button>
+             </form>
+             <div id="resultadoRodada" style="margin-top:15px; text-align:center;"></div>
+         </div>
+
+     </div>
+ </div>
+
+ <script src="admin_staff_frontend.js"></script>
+</body>
+</html>

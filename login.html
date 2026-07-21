@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>Acceso Tribu - Indian Motorcycle CDMX</title>
+ <link rel="stylesheet" href="styles.css">
+ <style>
+ .auth-contenedor { 
+    max-width: 420px; 
+    margin: 80px auto 40px auto; 
+    padding: 30px; 
+    background-color: var(--color-tarjeta); 
+    border: 1px solid rgba(96, 25, 38, 0.2); 
+    border-radius: 12px; 
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+ }
+ .auth-tabs { display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 1px solid rgba(96, 25, 38, 0.2); }
+ .tab-btn { flex: 1; padding: 12px; background: none; border: none; color: #777; font-family: 'Cinzel', serif; font-weight: bold; cursor: pointer; font-size: 0.9rem; transition: all 0.3s; }
+ .tab-btn.activo { color: var(--color-crema); border-bottom: 2px solid var(--color-principal); }
+ .campo-biker { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+ .campo-biker input { padding: 12px; background: #0e0406; border: 1px solid #3d1018; color: #fff; border-radius: 6px; font-family: inherit; font-size: 0.9rem; }
+ .campo-biker input:focus { border-color: var(--color-principal-brillante); outline: none; }
+ 
+ /* BOTÓN VOLVER INICIO */
+ .btn-cerrar-auth {
+    position: absolute;
+    top: -45px;
+    right: 10px;
+    color: var(--color-crema);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: color 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+ }
+ .btn-cerrar-auth:hover { color: #ff859a; }
+ </style>
+</head>
+<body>
+
+ <div style="max-width: 420px; margin: 0 auto; position: relative;">
+     <!-- 📲 BOTÓN DE ESCAPE DIRECTO AL INICIO -->
+     <a href="/index.html" class="btn-cerrar-auth">✕ Volver al Inicio</a>
+ </div>
+
+ <div class="auth-contenedor">
+ <div style="text-align: center; margin-bottom: 25px;">
+ <h2 class="titulo-marca" style="color: var(--color-crema); margin:0; font-size:1.4rem;">Indian Motorcycle</h2>
+ <span class="texto-elegante" style="font-size: 1.8rem; display:block; margin-top:-5px;">Ciudad de México</span>
+ </div>
+ 
+ <div class="auth-tabs">
+ <button class="tab-btn activo" id="tabLoginBtn">Iniciar Sesión</button>
+ <button class="tab-btn" id="tabRegistroBtn">Unirse a la Tribu</button>
+ </div>
+
+ <!-- FORMULARIO LOGIN -->
+ <form id="formLogin">
+ <div class="campo-biker">
+ <label style="font-size:12px; color:var(--color-crema); letter-spacing: 1px; text-transform: uppercase;">Usuario Biker:</label>
+ <input type="text" id="loginUsuario" required placeholder="Ej. scout60">
+ </div>
+ <div class="campo-biker">
+ <label style="font-size:12px; color:var(--color-crema); letter-spacing: 1px; text-transform: uppercase;">Contraseña:</label>
+ <input type="password" id="loginPassword" required placeholder="••••••••">
+ </div>
+ <button type="submit" class="btn-marca" style="width:100%; margin-top: 10px;">Encender Motor 🏍️</button>
+ </form>
+
+ <!-- FORMULARIO REGISTRO -->
+ <form id="formRegistro" style="display: none;">
+ <div class="campo-biker"><label style="font-size:12px; color:var(--color-crema); letter-spacing: 1px; text-transform: uppercase;">Nombre Completo:</label><input type="text" id="regNombre" required placeholder="Tu nombre y apellido"></div>
+ <div class="campo-biker"><label style="font-size:12px; color:var(--color-crema); letter-spacing: 1px; text-transform: uppercase;">Usuario Deseado:</label><input type="text" id="regUsuario" required placeholder="Ej. chief_cdmx"></div>
+ <div class="campo-biker"><label style="font-size:12px; color:var(--color-crema); letter-spacing: 1px; text-transform: uppercase;">Correo Electrónico:</label><input type="email" id="regCorreo" required placeholder="biker@correo.com"></div>
+ <div class="campo-biker"><label style="font-size:12px; color:var(--color-crema); letter-spacing: 1px; text-transform: uppercase;">Modelo de tu Indian:</label><input type="text" id="regMoto" placeholder="Ej. Scout Rogue 2025"></div>
+ <div class="campo-biker"><label style="font-size:12px; color:var(--color-crema); letter-spacing: 1px; text-transform: uppercase;">Contraseña:</label><input type="password" id="regPassword" required placeholder="Crea una contraseña segura"></div>
+ <button type="submit" class="btn-marca" style="width:100%; margin-top: 10px;">Registrarme a la Rodada</button>
+ </form>
+ 
+ <div id="authAlertas" style="margin-top:20px; text-align:center; font-weight:bold; font-size: 0.9rem;"></div>
+ </div>
+
+ <script src="auth_frontend.js"></script>
+</body>
+</html>

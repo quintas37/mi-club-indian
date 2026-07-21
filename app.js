@@ -16,18 +16,7 @@ let galeriaViajes = fs.existsSync(RUTA_DB_VIAJES) ? JSON.parse(fs.readFileSync(R
 let cronogramaRodadas = fs.existsSync(RUTA_DB_RODADAS) ? JSON.parse(fs.readFileSync(RUTA_DB_RODADAS, 'utf-8')) : [];
 let sesionesActivas = {};
 
-// ==========================================
-// 🚀 CREACIÓN DEL SERVIDOR NATIVO
-// ==========================================
-const server = http.createServer((req, res) => {
-    // 1. Si piden la raíz o viene vacío, asegurar que apunte a index.html
-    let urlSolicitada = (req.url === '/' || req.url === '') ? 'index.html' : req.url;
-    
-    // 2. Limpiar CUALQUIER diagonal inicial para evitar rutas rotas en Linux
-    if (urlSolicitada.startsWith('/')) {
-        urlSolicitada = urlSolicitada.substring(1);
-    }
-    
+   
     // 3. Construir la ruta combinando la carpeta public
     let rutaArchivo = path.join(PUBLIC_DIR, urlSolicitada);
     

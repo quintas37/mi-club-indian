@@ -96,8 +96,17 @@ documentdocument.addEventListener('DOMContentLoaded', () => {
             }
 
             contenedor.innerHTML = data.viajes.map((v, idx) => {
-                let fotosArray = v.urls_fotos && v.urls_fotos.length > 0 ? v.urls_fotos : (v.url_foto ? [v.url_foto] : ['/uploads/viajes/default.jpg']);
-                const totalFotos = fotosArray.length;
+                
+            // 🚀 Convertir de forma segura los datos de PostgreSQL a un arreglo limpio
+        let fotosArray = [];
+        if (v.urls_fotos) {
+            if (Array.isArray(v.urls_fotos)) {
+                fotosArray = v.urls_fotos;
+            } else if (typeof v.urls_fotos === 'string') {
+                fotosArray = v.urls_fotos.replace(/[{}"']/g, '').split(',').filter(url => url.trim() !== '');
+            }
+        }
+        const totalFotos = fotosArray.length;  
                 
                     // 🛠️ DETECTOR MULTIMEDIA OPTIMIZADO: Asegura la visibilidad del primer elemento (índice 0)
         const fotosHtml = fotosArray.map((url, index) => {

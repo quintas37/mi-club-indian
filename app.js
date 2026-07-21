@@ -3,10 +3,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const PORT = process.env.PORT || 3000; // Captura automática del puerto en internet
+const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-// 📁 RUTAS DE RESPALDO PERMANENTE LOCAL EN TU DISCO D
+// 📁 INFRAESTRUCTURA DE RESPALDO PERMANENTE NATIVA EN EL DISCO
 const RUTA_DB_USUARIOS = path.join(__dirname, 'usuarios.json');
 const RUTA_DB_VIAJES = path.join(__dirname, 'viajes.json');
 const RUTA_DB_RODADAS = path.join(__dirname, 'rodadas.json');
@@ -165,8 +165,7 @@ const server = http.createServer((req, res) => {
 
     /* ================= ACCIONES DE ADMINISTRACIÓN NATIVAS ================= */
     if (req.url === '/api/admin/aprobar' && req.method === 'POST') {
-
-let body = ''; req.on('data', chunk => { body += chunk.toString(); });
+        let body = ''; req.on('data', chunk => { body += chunk.toString(); });
 req.on('end', () => {
 const data = JSON.parse(body); const biker = baseDatosBikers.find(u => u.usuario === data.usuario);
 if (biker) { biker.aprobado = true; guardarEnDiscoD(); }
@@ -253,7 +252,7 @@ if (fotosGuardadas.length === 0) { res.writeHead(400, { 'Content-Type': 'applica
 const dominioActivo = req.headers.host;
 galeriaViajes.push({
 id: Date.now(), titulo_viaje: campos.titulo || 'Rodada', descripcion: campos.descripcion,
-ruta_origen_destino: campos.ruta, urls_fotos: fotosGuardadas.map(f => 'http://' + dominioActivo + f),
+ruta_origen_destino: campos.ruta, urls_fotos: fotosGuardadas.map(f => 'https://' + dominioActivo + f),
 nombre_completo: usuarioSesionActiva.nombre, likesBikers: []
 });
 guardarEnDiscoD();
@@ -263,5 +262,6 @@ return;
 }
 servirArchivoEstatico(res, req.url);
 });
+
 
 server.listen(PORT, () => console.log("🏍️ Servidor Indian activo en puerto " + PORT + "\n"));

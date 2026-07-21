@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Motorcycle - Ciudad de México</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- NAVBAR PREMIUM INTEGRADA -->
+    <header class="navbar">
+        <div class="logo-contenedor">
+            <img src="logo-indian.png" alt="Indian Logo" class="logo-img" onerror="this.style.display='none'">
+            <div class="logo-texto">
+                <h1>Indian Motorcycle</h1>
+                <span>Ciudad de México</span>
+            </div>
+        </div>
+ 
+        <!-- Botón táctil para el despliegue en celulares -->
+        <button class="menu-hamburguesa-btn" id="menuBoton">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
+        <nav class="nav-enlaces" id="navMenu">
+            <a href="#" id="enlaceTribuNav">La Tribu</a>
+            <a href="#proximas-rodadas">Rodadas</a>
+            <a href="#viajes">Crónicas</a>
+            <a href="/login.html" class="btn-ingresar">Ingresar a la Tribu</a>
+        </nav>
+    </header>
+
+    <!-- HERO DE BIENVENIDA -->
+    <section class="hero-seccion">
+        <h2>UNIDOS POR EL ASFALTO</h2>
+        <p>Indian Motorcycle Riders Group CDMX.</p>
+    </section>
+
+    <!-- CALENDARIO OFICIAL DE PRÓXIMAS RODADAS -->
+    <section id="proximas-rodadas" class="seccion-contenedor">
+        <h2 class="titulo-seccion">Próximas Salidas</h2>
+        <p class="subtitulo-seccion">Agenda oficial del club. Revisa los puntos de encuentro.</p>
+        <div id="contenedorCalendario" class="grid-calendario">
+            <!-- Se carga dinámicamente desde el backend -->
+        </div>
+    </section>
+
+    <!-- SIDEBAR LATERAL FLOTANTE DE LA TRIBU (MENÚ DESPLEGABLE) -->
+    <div class="sidebar-overlay" id="tribuOverlay"></div>
+    <div class="sidebar-tribu" id="tribuSidebar">
+        <div class="sidebar-encabezado">
+            <h3 class="titulo-marca" style="font-size: 1.1rem; color: var(--color-crema); margin:0;">Hermandad Indian</h3>
+            <button id="cerrarTribuBtn" style="background:none; border:none; color:#ff4d4d; font-weight:bold; cursor:pointer; font-size:1.1rem;">✕</button>
+        </div>
+        <div class="sidebar-cuerpo">
+            <div class="categoria-titulo">Mesa Directiva</div>
+            <div id="listaPresidente"></div>
+
+            <div class="categoria-titulo">Oficiales de Ruta</div>
+            <div id="listaOficiales"></div>
+
+            <div class="categoria-titulo">Miembros Comunes</div>
+            <div id="listaMiembros"></div>
+
+            <div class="categoria-titulo" id="tituloPendientes" style="display:none; color:#cc7a00; border-color:#cc7a00;">Solicitudes Pendientes</div>
+            <div id="listaPendientes"></div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN RESPALDO: MIEMBROS DE LA TRIBU EN PÁGINA -->
+    <section id="tribu" class="seccion-contenedor" style="padding-top: 80px; margin-top: -40px; display: none;">
+        <h2 class="titulo-seccion">Miembros de la Tribu</h2>
+        <p class="subtitulo-seccion">Jerarquía oficial y hermandad activa en asfalto.</p>
+        <div id="contenedorBikers" class="grid-bikers">
+            <!-- Cargado dinámicamente -->
+        </div>
+    </section>
+
+    <!-- FEED PRINCIPAL: CRÓNICAS DE ASFALTO -->
+    <main id="viajes" class="seccion-contenedor" style="padding-top: 60px;">
+        <h2 class="titulo-seccion">Crónicas de Asfalto</h2>
+        <p class="subtitulo-seccion">Explora las aventuras de la tribu. Desliza de forma horizontal para ver los álbumes completos.</p>
+        
+        <!-- BARRA DE BÚSQUEDA INTELIGENTE, EN TIEMPO REAL -->
+        <div class="contenedor-buscador">
+            <input type="text" id="buscadorInput" class="input-buscador-indian" placeholder="🔍 Buscar por título, destino o biker...">
+        </div>
+
+        <div id="contenedorViajes" class="grid-layout">
+            <!-- Tarjetas de viajes dinámicas con carrusel y contador flotante -->
+        </div>
+    </main> <!-- Cierre corregido de la etiqueta main -->
+
+    <script src="club_frontend.js"></script>
+</body>
+</html>

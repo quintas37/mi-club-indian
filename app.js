@@ -264,9 +264,9 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
                         if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
                         
                         // ☁️ Convertir la imagen a Base64 requerido por la API de Imgbb
-                        const imagenBase64 = cuerpo.toString('base64');
+                         const imagenBase64 = cuerpo.toString('base64');
                         
-                        // 🚀 Petición directa a Imgbb usando el API KEY de Render
+                         // 🚀 Petición directa a Imgbb usando el API KEY de Render
                         const urlImgbbApi = `https://imgbb.com{process.env.IMGBB_API_KEY}`;
                         const formularioFormData = new URLSearchParams();
                         formularioFormData.append('image', imagenBase64);

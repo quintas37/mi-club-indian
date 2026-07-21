@@ -1,4 +1,4 @@
-documentdocument.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
     const tokenGuardado = localStorage.getItem('biker_session_token');
 
     async function verificarMenuNavegacion() {
@@ -96,7 +96,7 @@ documentdocument.addEventListener('DOMContentLoaded', () => {
             }
 
             contenedor.innerHTML = data.viajes.map((v, idx) => {
-                
+
             // 🚀 Convertir de forma segura los datos de PostgreSQL a un arreglo limpio
         let fotosArray = [];
         if (v.urls_fotos) {

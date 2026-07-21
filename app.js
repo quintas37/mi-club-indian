@@ -3,10 +3,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; // Captura automática del puerto en internet
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-// 📁 RUTAS DE ALMACENAMIENTO PERMANENTE INMUNE A FALLAS DE RED
+// 📁 RUTAS DE RESPALDO PERMANENTE LOCAL EN TU DISCO D
 const RUTA_DB_USUARIOS = path.join(__dirname, 'usuarios.json');
 const RUTA_DB_VIAJES = path.join(__dirname, 'viajes.json');
 const RUTA_DB_RODADAS = path.join(__dirname, 'rodadas.json');
@@ -165,7 +165,8 @@ const server = http.createServer((req, res) => {
 
     /* ================= ACCIONES DE ADMINISTRACIÓN NATIVAS ================= */
     if (req.url === '/api/admin/aprobar' && req.method === 'POST') {
-        let body = ''; req.on('data', chunk => { body += chunk.toString(); });
+
+let body = ''; req.on('data', chunk => { body += chunk.toString(); });
 req.on('end', () => {
 const data = JSON.parse(body); const biker = baseDatosBikers.find(u => u.usuario === data.usuario);
 if (biker) { biker.aprobado = true; guardarEnDiscoD(); }
@@ -225,7 +226,7 @@ req.on('end', () => {
 const bufferCompleto = Buffer.concat(bodyBuffer);
 const contentTypeHeader = req.headers['content-type'] || ''; const boundaryMatch = contentTypeHeader.match(/boundary=(.+)/);
 if (!boundaryMatch) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
-let boundaryLimpio = boundaryMatch[1].replace(/["']/g, '');
+let boundaryLimpio = boundaryMatch.replace(/["']/g, '');
 if (!boundaryLimpio.startsWith('--')) boundaryLimpio = '--' + boundaryLimpio;
 const boundaryBuffer = Buffer.from(boundaryLimpio);
 let posiciones = []; let index = bufferCompleto.indexOf(boundaryBuffer);

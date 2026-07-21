@@ -312,8 +312,6 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
     res.end('Ruta no encontrada');
 });
 
-// ESCUCHAR EN EL PUERTO CORRESPONDIENTE
-const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
 });

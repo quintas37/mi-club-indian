@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = path.join(__dirname, 'public');
+const PUBLIC_DIR = __dirname;
 
 // 📁 INFRAESTRUCTURA DE RESPALDO PERMANENTE NATIVA EN EL DISCO
 const RUTA_DB_USUARIOS = path.join(__dirname, 'usuarios.json');
@@ -36,13 +36,19 @@ const server = http.createServer((req, res) => {
     const esOficialConPoderes = datosBikerNavegando && ['Vicepresidente', 'Sargento de Armas', 'Capitán de Ruta', 'Tesorero'].includes(datosBikerNavegando.rango);
     const tienePermisosModerador = esPresidente || esOficialConPoderes;
 
-    /* ========================================================================= */
-    /* 🌐 RUTA DE SERVICIO DE FRONTEND (PUBLIC) PARA LINUX / RENDER              */
+      /* ========================================================================= */
+    /* 🌐 RUTA DE SERVICIO DE FRONTEND PARA LA RAÍZ                              */
     /* ========================================================================= */
     if (!req.url.startsWith('/api/')) {
         let urlSolicitada = (req.url === '/' || req.url === '') ? 'index.html' : req.url;
         if (urlSolicitada.startsWith('/')) {
             urlSolicitada = urlSolicitada.substring(1);
+        }
+
+        // 🛡️ Seguridad: Evita que usuarios de internet descarguen tu código del servidor o las bases de datos
+        if (urlSolicitada === 'app.js' || urlSolicitada.endsWith('.json')) {
+            res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
+            return res.end('<h1>403 Acceso Denegado</h1>');
         }
 
         let filePath = path.join(PUBLIC_DIR, urlSolicitada);
@@ -52,18 +58,17 @@ const server = http.createServer((req, res) => {
         if (extname === '.js') contentType = 'text/javascript';
         if (extname === '.png') contentType = 'image/png';
         if (extname === '.jpg' || extname === '.jpeg') contentType = 'image/jpeg';
-        if (extname === '.mp4') contentType = 'video/mp4';
 
         fs.readFile(filePath, (err, content) => {
             if (err) {
                 res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-                res.end(`<h1>404 Club Indian</h1><p>No encontramos el recurso: <b>public/${urlSolicitada}</b></p>`);
+                res.end(`<h1>404 Club Indian</h1><p>No encontramos el recurso: <b>${urlSolicitada}</b></p>`);
             } else {
                 res.writeHead(200, { 'Content-Type': contentType });
                 res.end(content, 'utf-8');
             }
         });
-        return; // Detiene la ejecución aquí para que no interfiera con las APIs
+        return; 
     }
 
     /* ========================================================================= */

@@ -17,27 +17,47 @@ let cronogramaRodadas = fs.existsSync(RUTA_DB_RODADAS) ? JSON.parse(fs.readFileS
 let sesionesActivas = {};
 
    
-    // 3. Construir la ruta combinando la carpeta public
+ // ==========================================
+// 🏍️ CREACIÓN DEL SERVIDOR NATIVO
+// ==========================================
+const server = http.createServer((req, res) => {
+    
+    // 🌐 1. DECLARAR LA VARIABLE DE LA RUTA ENTRANTE
+    let urlSolicitada = (req.url === '/' || req.url === '') ? 'index.html' : req.url;
+    if (urlSolicitada.startsWith('/')) {
+        urlSolicitada = urlSolicitada.substring(1);
+    }
+
+    // 🛡️ 2. CONTROL DE SESIONES Y ROLES (Tu lógica de bikers)
+    const tokenCliente = req.headers['x-biker-token'];
+    const usuarioSesionActiva = sesionesActivas[tokenCliente];
+    
+    const datosBikerNavegando = usuarioSesionActiva ? baseDatosBikers.find(u => u.id === usuarioSesionActiva.id) : null;
+    const esPresidente = datosBikerNavegando && datosBikerNavegando.rango === 'Presidente';
+    const esOficialConPoderes = datosBikerNavegando && ['Vicepresidente', 'Sargento de Armas', 'Capitán de Ruta', 'Tesorero'].includes(datosBikerNavegando.rango);
+    const tienePermisosModerador = esPresidente || esOficialConPoderes;
+
+    // 📁 3. CONSTRUIR LA RUTA COMBINANDO LA CARPETA PUBLIC
     let rutaArchivo = path.join(PUBLIC_DIR, urlSolicitada);
     
-    // 4. Forzar el tipo de contenido básico
+    // 🔍 4. FORZAR EL TIPO DE CONTENIDO BÁSICO
     let extname = path.extname(rutaArchivo);
     let contentType = 'text/html; charset=utf-8';
     if (extname === '.js') contentType = 'text/javascript';
     if (extname === '.css') contentType = 'text/css';
 
-    // 5. Intentar leer el archivo físico de la carpeta 'public'
+    // 📬 5. INTENTAR LEER EL ARCHIVO FÍSICO Y ENVIARLO
     fs.readFile(rutaArchivo, (error, contenido) => {
         if (error) {
-            // Si falla en producción, te imprimimos un mensaje personalizado del club para saber qué ruta falló
             res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
             res.end(`<h1>404 Club Indian</h1><p>No encontramos el archivo: <b>public/${urlSolicitada}</b></p>`);
         } else {
-            // Éxito: Servir el archivo al navegador
             res.writeHead(200, { 'Content-Type': contentType });
             res.end(contenido, 'utf-8');
         }
     });
+});
+
 
 // Inicializar la escucha del puerto asignado por Render
 server.listen(PORT, () => {

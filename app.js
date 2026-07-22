@@ -312,7 +312,7 @@ if (cabecera.includes('name="fotoViaje"')) {
                     
 
                         // 🚀 Petición directa y correcta a la API de Imgbb
-                        const urlImgbbApi = `https://api.imgbb.com/1/upload?key=${process.env.IMGBB_API_KEY}`;
+                        const urlImgbbApi = 'https://imgbb.com';
                         const formularioFormData = new URLSearchParams();
                         formularioFormData.append('image', imagenBase64);
 

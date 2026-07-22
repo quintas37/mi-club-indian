@@ -249,7 +249,7 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 } catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
-   /* ================= API: SUBIR CRÓNICA PERMANENTE (SOPORTE MULTI-FOTO CORREGIDO) ================= */
+   /* ================= API: SUBIR CRÓNICA PERMANENTE (SOPORTE MULTI-FOTO CORREGIDO AL 100%) ================= */
 if (req.url === '/api/viajes/subir' && req.method === 'POST') {
     if (!usuarioSesionActiva) { 
         res.writeHead(401, { 'Content-Type': 'application/json' }); 
@@ -269,7 +269,7 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
                 return res.end(JSON.stringify({ success: false, error: 'Falta boundary en la petición' })); 
             }
             
-            // 💡 CORRECCIÓN INTEGRAL: Se restituye el índice [1] para que Render no truene al arrancar
+            // 💡 CORRECCIÓN FIJA: Acceso explícito al primer índice del array devuelto por match()
             let boundaryLimpio = boundaryMatch[1].replace(/["']/g, '');
             if (!boundaryLimpio.startsWith('--')) boundaryLimpio = '--' + boundaryLimpio;
             const boundaryBuffer = Buffer.from(boundaryLimpio);
@@ -354,6 +354,7 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
     });
     return;
 }
+
 }
 server.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);

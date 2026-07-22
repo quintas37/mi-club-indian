@@ -3,9 +3,6 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
-// Cargamos formidable para procesar las fotos de forma nativa y segura sin romper la sintaxis
-const formidable = require('formidable');
-
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = __dirname;
 
@@ -195,7 +192,8 @@ const server = http.createServer(async (req, res) => {
         req.on('end', async () => {
             try {
                 const data = JSON.parse(body);
-const result = await pool.query('SELECT * FROM usuarios WHERE usuario = $1', [data.usuario.trim().toLowerCase()]);
+                const result = await pool.query('SELECT * FROM usuarios WHERE usuario = $1', [data.usuario.trim().toLowerCase()]);
+
 if (result.rows.length === 0) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "No existe el usuario." })); }
 const biker = result.rows[0];
 if (!biker.aprobado) { res.writeHead(403, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "Tu cuenta está en revisión por la Mesa Directiva." })); }
@@ -248,56 +246,59 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 } catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
-/* ================= API: SUBIR CRÓNICA PERMANENTE (VÍA FORMIDABLE NATIVO Y SEGURO) ================= */
+/* ================= API: SUBIR CRÓNICA PERMANENTE (IMGBB CLOUD) ================= */
 if (req.url === '/api/viajes/subir' && req.method === 'POST') {
-if (!usuarioSesionActiva) {
-res.writeHead(401, { 'Content-Type': 'application/json' });
-return res.end(JSON.stringify({ success: false, error: 'Sesión no activa' }));
-}
-const form = new formidable.IncomingForm({ multiples: true });
-form.parse(req, async (err, fields, files) => {
-if (err) {
-res.writeHead(500, { 'Content-Type': 'application/json' });
-return res.end(JSON.stringify({ success: false, error: 'Error al parsear el formulario' }));
-}
+if (!usuarioSesionActiva) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
+let bodyBuffer = []; req.on('data', chunk => { bodyBuffer.push(chunk); });
+req.on('end', async () => {
 try {
-let archivosFotos = [];
-if (files.fotoViaje) {
-archivosFotos = Array.isArray(files.fotoViaje) ? files.fotoViaje : [files.fotoViaje];
-}
-let urlsImgbb = [];
-for (const archivo of archivosFotos) {
-if (!archivo.filepath) continue;
-const dataImagen = fs.readFileSync(archivo.filepath);
-const imagenBase64 = dataImagen.toString('base64');
-const apiKey = process.env.IMGBB_API_KEY || '';
-const urlImgbbApi = 'imgbb.com' + apiKey;
-const params = new URLSearchParams();
-params.append('image', imagenBase64);
-const respuesta = await fetch(urlImgbbApi, {
+const bufferCompleto = Buffer.concat(bodyBuffer);
+const contentTypeHeader = req.headers['content-type'] || '';
+const boundaryMatch = contentTypeHeader.match(/boundary=(.+)/);
+if (!boundaryMatch) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
+let boundaryLimpio = boundaryMatch[1].replace(/["']/g, '');
+if (!boundaryLimpio.startsWith('--')) boundaryLimpio = '--' + boundaryLimpio;
+const boundaryBuffer = Buffer.from(boundaryLimpio);
+let posiciones = []; let index = bufferCompleto.indexOf(boundaryBuffer);
+while (index !== -1) { posiciones.push(index); index = bufferCompleto.indexOf(boundaryBuffer, index + boundaryBuffer.length); }
+let campos = {}; let urlsImgbb = [];
+for (let i = 0; i < posiciones.length - 1; i++) {
+const inicio = posiciones[i] + boundaryBuffer.length + 2; const fin = posiciones[i+1]; const parteBuffer = bufferCompleto.subarray(inicio, fin);
+const indiceCuerpo = parteBuffer.indexOf('\r\n\r\n'); if (indiceCuerpo === -1) continue;
+const cabecera = parteBuffer.subarray(0, indiceCuerpo).toString('utf-8'); const cuerpo = parteBuffer.subarray(indiceCuerpo + 4, parteBuffer.length - 2);
+if (cabecera.includes('name="fotoViaje"')) {
+if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
+const imagenBase64 = cuerpo.toString('base64');
+const urlImgbbApi = 'imgbb.com' + (process.env.IMGBB_API_KEY || '');
+const formularioFormData = new URLSearchParams();
+formularioFormData.append('image', imagenBase64);
+const respuestaApi = await fetch(urlImgbbApi, {
 method: 'POST',
-body: params,
+body: formularioFormData,
 headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
 });
-const resultadoJson = await respuesta.json();
-if (resultadoJson && resultadoJson.success && resultadoJson.data) {
+const resultadoJson = await respuestaApi.json();
+if (resultadoJson && resultadoJson.success) {
 urlsImgbb.push(resultadoJson.data.url);
+} else {
+throw new Error('Fallo en la respuesta de Imgbb');
+}
+} else {
+const posName = cabecera.indexOf('name="');
+if (posName !== -1) { campos[cabecera.substring(posName + 6, cabecera.indexOf('"', posName + 6)).trim()] = cuerpo.toString('utf-8').trim(); }
 }
 }
-if (urlsImgbb.length === 0) {
-res.writeHead(400, { 'Content-Type': 'application/json' });
-return res.end(JSON.stringify({ success: false, error: 'No se procesaron imágenes en la nube.' }));
-}
+if (urlsImgbb.length === 0) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }
 await pool.query(
 'INSERT INTO viajes_galeria (id, titulo_viaje, descripcion, ruta_origen_destino, urls_fotos, nombre_completo) VALUES ($1, $2, $3, $4, $5, $6)',
-[Date.now(), fields.titulo || 'Rodada', fields.descripcion || '', fields.ruta || '', urlsImgbb, usuarioSesionActiva.nombre]
+[Date.now(), campos.titulo || 'Rodada', campos.descripcion || '', campos.ruta || '', urlsImgbb, usuarioSesionActiva.nombre]
 );
 res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
 return res.end(JSON.stringify({ success: true, message: '¡Crónica y fotografías publicadas con éxito!' }));
-} catch (errorInterno) {
-console.error(errorInterno);
+} catch (err) {
+console.error('Error al subir a Imgbb/PostgreSQL:', err);
 res.writeHead(500, { 'Content-Type': 'application/json' });
-return res.end(JSON.stringify({ success: false, error: errorInterno.message }));
+return res.end(JSON.stringify({ success: false }));
 }
 });
 return;

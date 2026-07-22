@@ -105,14 +105,11 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-        /* ================= API: FEED DE CRÓNICAS MULTIMEDIA (CORREGIDO) ================= */
+    /* ================= API: FEED DE CRÓNICAS MULTIMEDIA (CORREGIDO) ================= */
     if (req.url === '/api/viajes' && req.method === 'GET') {
         try {
             const result = await pool.query('SELECT * FROM viajes_galeria ORDER BY id DESC');
-            
-            // 💡 CORRECCIÓN: Se añade charset=utf-8 para evitar errores de texto y asegurar la carga limpia en PC
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-            
             return res.end(JSON.stringify({ 
                 success: true, 
                 viajes: result.rows, 
@@ -196,9 +193,8 @@ const server = http.createServer(async (req, res) => {
             try {
                 const data = JSON.parse(body);
                 const result = await pool.query('SELECT * FROM usuarios WHERE usuario = $1', [data.usuario.trim().toLowerCase()]);
-                if (result.rows.length === 0) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "No existe el usuario." })); }
-                
-                const biker = result.rows[0];
+if (result.rows.length === 0) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "No existe el usuario." })); }
+const biker = result.rows[0];
 if (!biker.aprobado) { res.writeHead(403, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "Tu cuenta está en revisión por la Mesa Directiva." })); }
 const hashVerificar = crypto.scryptSync(data.password, biker.salt, 64).toString('hex');
 if (hashVerificar !== biker.password_hash) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "Contraseña incorrecta." })); }
@@ -249,112 +245,94 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 } catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
-  /* ================= API: SUBIR CRÓNICA PERMANENTE (SOPORTE MULTI-FOTO CORREGIDO AL 100%) ================= */
+/* ================= API: SUBIR CRÓNICA PERMANENTE (SOPORTE MULTI-FOTO CORREGIDO AL 100%) ================= */
 if (req.url === '/api/viajes/subir' && req.method === 'POST') {
-    if (!usuarioSesionActiva) { 
-        res.writeHead(401, { 'Content-Type': 'application/json' }); 
-        return res.end(JSON.stringify({ success: false, error: 'Sesión no activa' })); 
-    }
-
-    let bodyBuffer = []; 
-    req.on('data', chunk => { bodyBuffer.push(chunk); });
-    req.on('end', async () => {
-        try {
-            const bufferCompleto = Buffer.concat(bodyBuffer);
-            const contentTypeHeader = req.headers['content-type'] || ''; 
-            const boundaryMatch = contentTypeHeader.match(/boundary=(.+)/);
-            
-            if (!boundaryMatch || !boundaryMatch[1]) { 
-                res.writeHead(400, { 'Content-Type': 'application/json' }); 
-                return res.end(JSON.stringify({ success: false, error: 'Falta boundary en la petición' })); 
-            }
-            
-            // 💡 CORRECCIÓN FIJA: Acceso explícito al primer índice del array devuelto por match()
-            let boundaryLimpio = boundaryMatch[1].replace(/["']/g, '');
-            if (!boundaryLimpio.startsWith('--')) boundaryLimpio = '--' + boundaryLimpio;
-            const boundaryBuffer = Buffer.from(boundaryLimpio);
-            
-            let posiciones = []; 
-            let index = bufferCompleto.indexOf(boundaryBuffer);
-            while (index !== -1) { 
-                posiciones.push(index); 
-                index = bufferCompleto.indexOf(boundaryBuffer, index + boundaryBuffer.length); 
-            }
-            
-            let campos = {}; 
-            let promesasImgbb = [];
-            
-            for (let i = 0; i < posiciones.length - 1; i++) {
-                const inicio = posiciones[i] + boundaryBuffer.length + 2; 
-                const fin = posiciones[i+1]; 
-                const parteBuffer = bufferCompleto.subarray(inicio, fin);
-                const indiceCuerpo = parteBuffer.indexOf('\r\n\r\n'); 
-                if (indiceCuerpo === -1) continue;
-                
-                const cabecera = parteBuffer.subarray(0, indiceCuerpo).toString('utf-8'); 
-                const cuerpo = parteBuffer.subarray(indiceCuerpo + 4, parteBuffer.length - 2);
-                
-                if (cabecera.includes('name="fotoViaje"') || cabecera.includes('filename=')) {
-                    if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
-                    
-                    const imagenBase64 = cuerpo.toString('base64');
-                    const apiKey = process.env.IMGBB_API_KEY || 'AQUÍ_TU_LLAVE_REAL_DE_IMGBB';
-                    const urlImgbbApi = 'https://imgbb.com' + apiKey;
-                    
-                    const formularioFormData = new URLSearchParams();
-                    formularioFormData.append('image', imagenBase64);
-
-                    promesasImgbb.push(
-                        fetch(urlImgbbApi, {
-                            method: 'POST',
-                            body: formularioFormData,
-                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-                        }).then(r => r.json())
-                    );
-                } else {
-                    const posName = cabecera.indexOf('name="');
-                    if (posName !== -1) { 
-                        campos[cabecera.substring(posName + 6, cabecera.indexOf('"', posName + 6)).trim()] = cuerpo.toString('utf-8').trim(); 
-                    }
-                }
-            }
-            
-            if (promesasImgbb.length === 0) { 
-                res.writeHead(400, { 'Content-Type': 'application/json' }); 
-                return res.end(JSON.stringify({ success: false, error: 'No se recibieron imágenes válidas.' })); 
-            }
-            
-            const respuestasCompletas = await Promise.all(promesasImgbb);
-            let urlsImgbb = [];
-            
-            for (const resultadoJson of respuestasCompletas) {
-                if (resultadoJson && resultadoJson.success && resultadoJson.data) {
-                    urlsImgbb.push(resultadoJson.data.url); 
-                } else {
-                    console.error('Fallo parcial en ImgBB:', resultadoJson);
-                }
-            }
-            
-            if (urlsImgbb.length === 0) {
-                throw new Error('Ninguna imagen pudo ser cargada con éxito en ImgBB.');
-            }
-            
-             await pool.query(
-            'INSERT INTO viajes_galeria (id, titulo_viaje, descripcion, ruta_origen_destino, urls_fotos, nombre_completo) VALUES ($1, $2, $3, $4, $5, $6)',
-            [Date.now(), campos.titulo || 'Rodada', campos.descripcion || '', campos.ruta || '', urlsImgbb, usuarioSesionActiva.nombre]
-        );
-            
-            res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' }); 
-            res.end(JSON.stringify({ success: true, message: '¡Crónica y fotografías publicadas con éxito!' }));
-        } catch (err) {
-            console.error('❌ Error crítico en el proceso de subida:', err.message);
-            res.writeHead(500, { 'Content-Type': 'application/json' }); 
-            res.end(JSON.stringify({ success: false, detalle: err.message }));
-        }
-    });
-    return;
+if (!usuarioSesionActiva) {
+res.writeHead(401, { 'Content-Type': 'application/json' });
+return res.end(JSON.stringify({ success: false, error: 'Sesión no activa' }));
+}
+let bodyBuffer = [];
+req.on('data', chunk => { bodyBuffer.push(chunk); });
+req.on('end', async () => {
+try {
+const bufferCompleto = Buffer.concat(bodyBuffer);
+const contentTypeHeader = req.headers['content-type'] || '';
+const boundaryMatch = contentTypeHeader.match(/boundary=(.+)/);
+if (!boundaryMatch || !boundaryMatch[1]) {
+res.writeHead(400, { 'Content-Type': 'application/json' });
+return res.end(JSON.stringify({ success: false, error: 'Falta boundary en la petición' }));
+}
+let boundaryLimpio = boundaryMatch[1].replace(/["']/g, '');
+if (!boundaryLimpio.startsWith('--')) boundaryLimpio = '--' + boundaryLimpio;
+const boundaryBuffer = Buffer.from(boundaryLimpio);
+let posiciones = [];
+let index = bufferCompleto.indexOf(boundaryBuffer);
+while (index !== -1) {
+posiciones.push(index);
+index = bufferCompleto.indexOf(boundaryBuffer, index + boundaryBuffer.length);
+}
+let campos = {};
+let promesasImgbb = [];
+for (let i = 0; i < posiciones.length - 1; i++) {
+const inicio = posiciones[i] + boundaryBuffer.length + 2;
+const fin = posiciones[i+1];
+const parteBuffer = bufferCompleto.subarray(inicio, fin);
+const indiceCuerpo = parteBuffer.indexOf('\r\n\r\n');
+if (indiceCuerpo === -1) continue;
+const cabecera = parteBuffer.subarray(0, indiceCuerpo).toString('utf-8');
+const cuerpo = parteBuffer.subarray(indiceCuerpo + 4, parteBuffer.length - 2);
+if (cabecera.includes('name="fotoViaje"') || cabecheader.includes('filename=')) {
+if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
+const imagenBase64 = cuerpo.toString('base64');
+const apiKey = process.env.IMGBB_API_KEY || 'AQUÍ_TU_LLAVE_REAL_DE_IMGBB';
+const urlImgbbApi = 'imgbb.com' + apiKey;
+const formularioFormData = new URLSearchParams();
+formularioFormData.append('image', imagenBase64);
+promesasImgbb.push(
+fetch(urlImgbbApi, {
+method: 'POST',
+body: formularioFormData,
+headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+}).then(r => r.json())
+);
+} else {
+const posName = cabecera.indexOf('name="');
+if (posName !== -1) {
+campos[cabecera.substring(posName + 6, cabecera.indexOf('"', posName + 6)).trim()] = cuerpo.toString('utf-8').trim();
 }
 }
+}
+if (promesasImgbb.length === 0) {
+res.writeHead(400, { 'Content-Type': 'application/json' });
+return res.end(JSON.stringify({ success: false, error: 'No se recibieron imágenes válidas.' }));
+}
+const respuestasCompletas = await Promise.all(promesasImgbb);
+let urlsImgbb = [];
+for (const resultadoJson of respuestasCompletas) {
+if (resultadoJson && resultadoJson.success && resultadoJson.data) {
+urlsImgbb.push(resultadoJson.data.url);
+} else {
+console.error('Fallo parcial en ImgBB:', resultadoJson);
+}
+}
+if (urlsImgbb.length === 0) {
+throw new Error('Ninguna imagen pudo ser cargada con éxito en ImgBB.');
+}
+await pool.query(
+'INSERT INTO viajes_galeria (id, titulo_viaje, descripcion, ruta_origen_destino, urls_fotos, nombre_completo) VALUES ($1, $2, $3, $4, $5, $6)',
+[Date.now(), campos.titulo || 'Rodada', campos.descripcion || '', campos.ruta || '', urlsImgbb, usuarioSesionActiva.nombre]
+);
+res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
+res.end(JSON.stringify({ success: true, message: '¡Crónica y fotografías publicadas con éxito!' }));
+} catch (err) {
+console.error('❌ Error crítico en el proceso de subida:', err.message);
+res.writeHead(500, { 'Content-Type': 'application/json' });
+res.end(JSON.stringify({ success: false, detalle: err.message }));
+}
+});
+return;
+}
+}); // 💡 ESTA LLAVE CIERRA EL http.createServer DE FORMA CORRECTA AL FINAL DE LAS UTAS
 server.listen(PORT, () => {
-    console.log(`Servidor corriendo en el puerto ${PORT}`);
+console.log(Servidor corriendo en el puerto ${PORT});
 });

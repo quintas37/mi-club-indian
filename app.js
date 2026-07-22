@@ -240,7 +240,6 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 }); return;
 }
 
-
     
     /* ================= API: ELIMINAR CRÓNICA MULTIMEDIA ESTE CODIGO ES NUEVO, POR LO QUE SE PUEDE ELIMINAR SI FALLA================= */
     if (req.url.startsWith('/api/admin/borrar-cronica') && req.method === 'POST') {
@@ -259,7 +258,6 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
         return;
     }
   /* ================= API: ELIMINAR CRÓNICA MULTIMEDIA ESTE CODIGO ES NUEVO, POR LO QUE SE PUEDE ELIMINAR SI FALLA================= */
-
 
     
        /* ================= API: SUBIR CRÓNICA PERMANENTE (IMGBB CLOUD) ================= */
@@ -285,14 +283,12 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 
 
 
-
                     
     /*==CAMBIO QUE SE PUEDE REVERTIR EN LINEA DE ABAJO   if (cabecera.includes('name="fotoViaje"')) {===*/
                     /*if (cabecera.includes('name="fotoViaje"') || cabecera.includes('filename=')) { */
                       /*  if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;  */
                        // ☁️ Convertir la imagen a Base64 requerido por la API de Imgbb*/
                      /*  const imagenBase64 = cuerpo.toString('base64');*/
-
 
 if (cabecera.includes('name="fotoViaje"')) {
     if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
@@ -306,7 +302,6 @@ if (cabecera.includes('name="fotoViaje"')) {
 
     // Convertimos a Base64 el flujo binario limpio
     const imagenBase64 = bytesPuros.toString('base64');
-
 
 
                     
@@ -352,7 +347,6 @@ if (cabecera.includes('name="fotoViaje"')) {
         return;
     }
 
-
     // SI LA RUTA NO COINCIDE CON NINGUNA API O ARCHIVO:
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Ruta no encontrada');
@@ -361,3 +355,4 @@ if (cabecera.includes('name="fotoViaje"')) {
 server.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
+

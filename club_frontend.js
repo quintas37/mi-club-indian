@@ -97,15 +97,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             contenedor.innerHTML = data.viajes.map((v, idx) => {
 
-            // 🚀 Convertir de forma segura los datos de PostgreSQL a un arreglo limpio
-        let fotosArray = [];
-        if (v.urls_fotos) {
-            if (Array.isArray(v.urls_fotos)) {
-                fotosArray = v.urls_fotos;
-            } else if (typeof v.urls_fotos === 'string') {
-                fotosArray = v.urls_fotos.replace(/[{}"']/g, '').split(',').filter(url => url.trim() !== '');
+            // 🚀 Convertir de forma segura los datos de PostgreSQL a un arreglo limpi0
+            let fotosArray = [];
+            const datosFotos = v.urls_fotos || v.urls_fotos; 
+
+            if (datosFotos) {
+                if (Array.isArray(datosFotos)) {
+                    fotosArray = datosFotos;
+                } else if (typeof datosFotos === 'string') {
+                    fotosArray = datosFotos.replace(/[{}"']/g, '').split(',').filter(url => url.trim() !== '');
+                }
             }
-        }
+
         const totalFotos = fotosArray.length;  
                 
                     // 🛠️ DETECTOR MULTIMEDIA OPTIMIZADO: Asegura la visibilidad del primer elemento (índice 0)

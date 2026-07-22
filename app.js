@@ -105,7 +105,7 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    /* ================= API: FEED DE CRÓNICAS MULTIMEDIA (CORREGIDO) ================= */
+    /* ================= API: FEED DE CRÓNICAS MULTIMEDIA ================= */
     if (req.url === '/api/viajes' && req.method === 'GET') {
         try {
             const result = await pool.query('SELECT * FROM viajes_galeria ORDER BY id DESC');
@@ -193,6 +193,7 @@ const server = http.createServer(async (req, res) => {
             try {
                 const data = JSON.parse(body);
                 const result = await pool.query('SELECT * FROM usuarios WHERE usuario = $1', [data.usuario.trim().toLowerCase()]);
+
 if (result.rows.length === 0) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "No existe el usuario." })); }
 const biker = result.rows[0];
 if (!biker.aprobado) { res.writeHead(403, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "Tu cuenta está en revisión por la Mesa Directiva." })); }
@@ -245,7 +246,7 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 } catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
-/* ================= API: SUBIR CRÓNICA PERMANENTE (SOPORTE MULTI-FOTO CORREGIDO AL 100%) ================= */
+/* ================= API: SUBIR CRÓNICA PERMANENTE (IMGBB CLOUD MULTI-FOTO CORREGIDO) ================= */
 if (req.url === '/api/viajes/subir' && req.method === 'POST') {
 if (!usuarioSesionActiva) {
 res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -262,6 +263,7 @@ if (!boundaryMatch || !boundaryMatch[1]) {
 res.writeHead(400, { 'Content-Type': 'application/json' });
 return res.end(JSON.stringify({ success: false, error: 'Falta boundary en la petición' }));
 }
+// CORRECCIÓN DEFINITIVA: Acceso seguro al índice del array devuelto por match()
 let boundaryLimpio = boundaryMatch[1].replace(/["']/g, '');
 if (!boundaryLimpio.startsWith('--')) boundaryLimpio = '--' + boundaryLimpio;
 const boundaryBuffer = Buffer.from(boundaryLimpio);
@@ -281,10 +283,10 @@ const indiceCuerpo = parteBuffer.indexOf('\r\n\r\n');
 if (indiceCuerpo === -1) continue;
 const cabecera = parteBuffer.subarray(0, indiceCuerpo).toString('utf-8');
 const cuerpo = parteBuffer.subarray(indiceCuerpo + 4, parteBuffer.length - 2);
-if (cabecera.includes('name="fotoViaje"') || cabecheader.includes('filename=')) {
+if (cabecera.includes('name="fotoViaje"') || cabecera.includes('filename=')) {
 if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
 const imagenBase64 = cuerpo.toString('base64');
-const apiKey = process.env.IMGBB_API_KEY || 'AQUÍ_TU_LLAVE_REAL_DE_IMGBB';
+const apiKey = process.env.IMGBB_API_KEY || '';
 const urlImgbbApi = 'imgbb.com' + apiKey;
 const formularioFormData = new URLSearchParams();
 formularioFormData.append('image', imagenBase64);
@@ -323,16 +325,16 @@ await pool.query(
 [Date.now(), campos.titulo || 'Rodada', campos.descripcion || '', campos.ruta || '', urlsImgbb, usuarioSesionActiva.nombre]
 );
 res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
-res.end(JSON.stringify({ success: true, message: '¡Crónica y fotografías publicadas con éxito!' }));
+return res.end(JSON.stringify({ success: true, message: '¡Crónica y fotografías publicadas con éxito!' }));
 } catch (err) {
 console.error('❌ Error crítico en el proceso de subida:', err.message);
 res.writeHead(500, { 'Content-Type': 'application/json' });
-res.end(JSON.stringify({ success: false, detalle: err.message }));
+return res.end(JSON.stringify({ success: false, detalle: err.message }));
 }
 });
 return;
 }
-}); // 💡 ESTA LLAVE CIERRA EL http.createServer DE FORMA CORRECTA AL FINAL DE LAS UTAS
+});
 server.listen(PORT, () => {
 console.log(Servidor corriendo en el puerto ${PORT});
 });

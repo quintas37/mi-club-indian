@@ -21,45 +21,64 @@ document.addEventListener('DOMContentLoaded', () => {
         seccionCronica.style.display = 'none';
     });
 
-    // ================= ENVIADOR DE CRÓNICAS Y FOTOS MULTIPART =================
-    document.getElementById('formSubirViaje')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const divRes = document.getElementById('resultadoSubida');
-        divRes.innerHTML = '⚙️ Subiendo álbum a la cronología de asfalto...';
+    // ================= ENVIADOR DE CRÓNICAS Y FOTOS MULTIPART (CORREGIDO) =================
+document.getElementById('formSubirViaje')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const divRes = document.getElementById('resultadoSubida');
+    divRes.innerHTML = '⚙️ Convirtiendo imágenes y subiendo álbum a la cronología de asfalto...';
 
-        const formData = new FormData();
-        formData.append('titulo', document.getElementById('viajeTitulo').value);
-        formData.append('ruta', document.getElementById('viajeRuta').value);
-        formData.append('fecha', document.getElementById('viajeFecha').value);
-        formData.append('descripcion', document.getElementById('viajeDescripcion').value);
-        
-        const inputArchivos = document.getElementById('viajeFoto');
+    const formData = new FormData();
+    formData.append('titulo', document.getElementById('viajeTitulo').value);
+    formData.append('ruta', document.getElementById('viajeRuta').value);
+    formData.append('fecha', document.getElementById('viajeFecha').value);
+    formData.append('descripcion', document.getElementById('viajeDescripcion').value);
+    
+    const inputArchivos = document.getElementById('viajeFoto');
+    
+    // Función auxiliar para leer los archivos como Base64 real en el navegador
+    const leerComoBase64 = (archivo) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                // Removemos el prefijo data:image/jpeg;base64, para enviar solo el string puro
+                const base64Puro = reader.result.split(',')[1];
+                resolve(base64Puro);
+            };
+            reader.onerror = error => reject(error);
+            reader.readAsDataURL(archivo);
+        });
+    };
+
+    try {
         if (inputArchivos && inputArchivos.files.length > 0) {
             for (let i = 0; i < inputArchivos.files.length; i++) {
-                formData.append('fotoViaje', inputArchivos.files[i], inputArchivos.files[i].name);
+                const stringBase64 = await leerComoBase64(inputArchivos.files[i]);
+                // Enviamos el string puro que tu app.js sabe procesar sin romper el binario
+                formData.append('fotoViaje', stringBase64);
             }
         }
 
-        try {
-            const tokenGuardado = localStorage.getItem('biker_session_token');
-            const res = await fetch('/api/viajes/subir', { 
-                method: 'POST', 
-                headers: { 'x-biker-token': tokenGuardado || '' }, 
-                body: formData 
-            });
-            const data = await res.json();
-            
-            if (data.success) {
-                divRes.innerHTML = '<span style="color:#28a745; font-weight:bold;">✅ ¡Crónica publicada con éxito!</span>';
-                document.getElementById('formSubirViaje').reset();
-                setTimeout(() => { window.location.href = '/index.html'; }, 1500);
-            } else { 
-                divRes.innerHTML = `<span style="color:#ff4d4d;">❌ Error: ${data.error}</span>`; 
-            }
-        } catch (err) {
-            divRes.innerHTML = '<span style="color:#ff4d4d;">❌ Error crítico de comunicación con el servidor.</span>';
+        const tokenGuardado = localStorage.getItem('biker_session_token');
+        const res = await fetch('/api/viajes/subir', { 
+            method: 'POST', 
+            headers: { 'x-biker-token': tokenGuardado || '' }, 
+            body: formData 
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            divRes.innerHTML = '<span style="color:#28a745; font-weight:bold;">✅ ¡Crónica publicada con éxito!</span>';
+            document.getElementById('formSubirViaje').reset();
+            setTimeout(() => { window.location.href = '/index.html'; }, 1500);
+        } else { 
+            divRes.innerHTML = `<span style="color:#ff4d4d;">❌ Error: ${data.error}</span>`; 
         }
-    });
+    } catch (err) {
+        console.error(err);
+        divRes.innerHTML = '<span style="color:#ff4d4d;">❌ Error crítico de comunicación con el servidor.</span>';
+    }
+});
+
 
     // ================= ENVIADOR DE NUEVAS RODADAS AL CALENDARIO =================
     document.getElementById('formNuevaRodada')?.addEventListener('submit', async (e) => {

@@ -239,6 +239,29 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 } catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
+
+
+    
+    /* ================= API: ELIMINAR CRÓNICA MULTIMEDIA ESTE CODIGO ES NUEVO, POR LO QUE SE PUEDE ELIMINAR SI FALLA================= */
+    if (req.url.startsWith('/api/admin/borrar-cronica') && req.method === 'POST') {
+        let body = ''; req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', async () => {
+            try {
+                const data = JSON.parse(body);
+                await pool.query('DELETE FROM viajes_galeria WHERE id = $1', [data.idViaje]);
+                res.writeHead(200, { 'Content-Type': 'application/json' }); 
+                res.end(JSON.stringify({ success: true }));
+            } catch (err) { 
+                console.error(err);
+                res.writeHead(500); res.end(); 
+            }
+        }); 
+        return;
+    }
+  /* ================= API: ELIMINAR CRÓNICA MULTIMEDIA ESTE CODIGO ES NUEVO, POR LO QUE SE PUEDE ELIMINAR SI FALLA================= */
+
+
+    
        /* ================= API: SUBIR CRÓNICA PERMANENTE (IMGBB CLOUD) ================= */
     if (req.url === '/api/viajes/subir' && req.method === 'POST') {
         if (!usuarioSesionActiva) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false })); }

@@ -282,8 +282,9 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
                     const inicio = posiciones[i] + boundaryBuffer.length + 2; const fin = posiciones[i+1]; const parteBuffer = bufferCompleto.subarray(inicio, fin);
                     const indiceCuerpo = parteBuffer.indexOf('\r\n\r\n'); if (indiceCuerpo === -1) continue;
                     const cabecera = parteBuffer.subarray(0, indiceCuerpo).toString('utf-8'); const cuerpo = parteBuffer.subarray(indiceCuerpo + 4, parteBuffer.length - 2);
-                    
-                    if (cabecera.includes('name="fotoViaje"')) {
+
+                    /*==CAMBIO QUE SE PUEDE REVERTIR EN LINEA DE ABAJO   if (cabecera.includes('name="fotoViaje"')) {===*/
+                    if (cabecera.includes('name="fotoViaje"') || cabecera.includes('filename=')) { 
                         if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
                         
                        // ☁️ Convertir la imagen a Base64 requerido por la API de Imgbb

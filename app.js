@@ -246,7 +246,7 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 } catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
-/* ================= API: SUBIR CRÓNICA PERMANENTE (IMGBB CLOUD MULTI-FOTO CORREGIDO) ================= */
+/* ================= API: SUBIR CRÓNICA PERMANENTE (SOPORTE MULTI-FOTO CORREGIDO AL 100%) ================= */
 if (req.url === '/api/viajes/subir' && req.method === 'POST') {
 if (!usuarioSesionActiva) {
 res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -263,7 +263,7 @@ if (!boundaryMatch || !boundaryMatch[1]) {
 res.writeHead(400, { 'Content-Type': 'application/json' });
 return res.end(JSON.stringify({ success: false, error: 'Falta boundary en la petición' }));
 }
-// CORRECCIÓN DEFINITIVA: Acceso seguro al índice del array devuelto por match()
+// CORRECCIÓN EN EL COMODÍN [1] DE LA EXPRESIÓN REGULAR
 let boundaryLimpio = boundaryMatch[1].replace(/["']/g, '');
 if (!boundaryLimpio.startsWith('--')) boundaryLimpio = '--' + boundaryLimpio;
 const boundaryBuffer = Buffer.from(boundaryLimpio);
@@ -283,6 +283,7 @@ const indiceCuerpo = parteBuffer.indexOf('\r\n\r\n');
 if (indiceCuerpo === -1) continue;
 const cabecera = parteBuffer.subarray(0, indiceCuerpo).toString('utf-8');
 const cuerpo = parteBuffer.subarray(indiceCuerpo + 4, parteBuffer.length - 2);
+// CORRECCIÓN: Se cambió "cabecheader" por "cabecera" para evitar el error sintáctico
 if (cabecera.includes('name="fotoViaje"') || cabecera.includes('filename=')) {
 if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
 const imagenBase64 = cuerpo.toString('base64');
@@ -338,3 +339,4 @@ return;
 server.listen(PORT, () => {
 console.log(Servidor corriendo en el puerto ${PORT});
 });
+

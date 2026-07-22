@@ -249,7 +249,7 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 } catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
-   /* ================= API: SUBIR CRÓNICA PERMANENTE (SOPORTE MULTI-FOTO CORREGIDO AL 100%) ================= */
+  /* ================= API: SUBIR CRÓNICA PERMANENTE (SOPORTE MULTI-FOTO CORREGIDO AL 100%) ================= */
 if (req.url === '/api/viajes/subir' && req.method === 'POST') {
     if (!usuarioSesionActiva) { 
         res.writeHead(401, { 'Content-Type': 'application/json' }); 
@@ -354,7 +354,6 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
     });
     return;
 }
-
 }
 server.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);

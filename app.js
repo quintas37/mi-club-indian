@@ -339,10 +339,10 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
                 throw new Error('Ninguna imagen pudo ser cargada con éxito en ImgBB.');
             }
             
-            await pool.query(
-                'INSERT INTO viajes_galeria (id, titulo_viaje, descripcion, ruta_origen_destino, urls_fotos, nombre_completo) VALUES ($1, $2, $3, $4, $5, $6)',
-                [Date.now(), campos.titulo || 'Rodada', campos.descripcion || '', campos.ruta || '', urlsImgbb, usuarioSesionActiva.nombre]
-            );
+             await pool.query(
+            'INSERT INTO viajes_galeria (id, titulo_viaje, descripcion, ruta_origen_destino, urls_fotos, nombre_completo) VALUES ($1, $2, $3, $4, $5, $6)',
+            [Date.now(), campos.titulo || 'Rodada', campos.descripcion || '', campos.ruta || '', urlsImgbb, usuarioSesionActiva.nombre]
+        );
             
             res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' }); 
             res.end(JSON.stringify({ success: true, message: '¡Crónica y fotografías publicadas con éxito!' }));

@@ -264,10 +264,10 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
             const contentTypeHeader = req.headers['content-type'] || ''; 
             const boundaryMatch = contentTypeHeader.match(/boundary=(.+)/);
             
-            if (!boundaryMatch) { 
+            if (!boundaryMatch || !boundaryMatch[1]) { 
                 res.writeHead(400, { 'Content-Type': 'application/json' }); 
                 return res.end(JSON.stringify({ success: false, error: 'Falta boundary en la petición' })); 
-            }
+                }
             
             let boundaryLimpio = boundaryMatch[1].replace(/["']/g, '');
             if (!boundaryLimpio.startsWith('--')) boundaryLimpio = '--' + boundaryLimpio;

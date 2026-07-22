@@ -283,12 +283,33 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
                     const indiceCuerpo = parteBuffer.indexOf('\r\n\r\n'); if (indiceCuerpo === -1) continue;
                     const cabecera = parteBuffer.subarray(0, indiceCuerpo).toString('utf-8'); const cuerpo = parteBuffer.subarray(indiceCuerpo + 4, parteBuffer.length - 2);
 
-                    /*==CAMBIO QUE SE PUEDE REVERTIR EN LINEA DE ABAJO   if (cabecera.includes('name="fotoViaje"')) {===*/
-                    if (cabecera.includes('name="fotoViaje"') || cabecera.includes('filename=')) { 
-                        if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
-                        
-                       // ☁️ Convertir la imagen a Base64 requerido por la API de Imgbb
-                       const imagenBase64 = cuerpo.toString('base64');
+
+
+
+                    
+    /*==CAMBIO QUE SE PUEDE REVERTIR EN LINEA DE ABAJO   if (cabecera.includes('name="fotoViaje"')) {===*/
+                    /*if (cabecera.includes('name="fotoViaje"') || cabecera.includes('filename=')) { */
+                      /*  if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;  */
+                       // ☁️ Convertir la imagen a Base64 requerido por la API de Imgbb*/
+                     /*  const imagenBase64 = cuerpo.toString('base64');*/
+
+
+if (cabecera.includes('name="fotoViaje"')) {
+    if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
+    
+    // 💡 RECORTE SEGURO: Eliminamos los saltos de línea adicionales que el navegador mete al enviar desde PC
+    let bytesPuros = cuerpo;
+    const primerByteReal = cuerpo.indexOf(Buffer.from([0xFF, 0xD8])); // Busca el inicio real de un JPG
+    if (primerByteReal !== -1) {
+        bytesPuros = cuerpo.subarray(primerByteReal);
+    }
+
+    // Convertimos a Base64 el flujo binario limpio
+    const imagenBase64 = bytesPuros.toString('base64');
+
+
+
+                    
 
                         // 🚀 Petición directa y correcta a la API de Imgbb
                         const urlImgbbApi = `https://api.imgbb.com/1/upload?key=${process.env.IMGBB_API_KEY}`;

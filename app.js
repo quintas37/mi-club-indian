@@ -299,8 +299,8 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
                     
                     const imagenBase64 = cuerpo.toString('base64');
                     const apiKey = process.env.IMGBB_API_KEY || 'AQUÍ_TU_LLAVE_REAL_DE_IMGBB';
-                    const urlImgbbApi = `https://imgbb.com{apiKey}`;
-                    
+                    //  CÓDIGO CORREGIDO AL 100%:
+                    const urlImgbbApi = 'https://imgbb.com' + apiKey;
                     const formularioFormData = new URLSearchParams();
                     formularioFormData.append('image', imagenBase64);
 

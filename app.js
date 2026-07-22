@@ -105,14 +105,24 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    /* ================= API: FEED DE CRÓNICAS MULTIMEDIA ================= */
+        /* ================= API: FEED DE CRÓNICAS MULTIMEDIA (CORREGIDO) ================= */
     if (req.url === '/api/viajes' && req.method === 'GET') {
         try {
             const result = await pool.query('SELECT * FROM viajes_galeria ORDER BY id DESC');
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            return res.end(JSON.stringify({ success: true, viajes: result.rows, modoAdmin: tienePermisosModerador, idBikerLogueado: usuarioSesionActiva ? usuarioSesionActiva.id : null }));
+            
+            // 💡 CORRECCIÓN: Se añade charset=utf-8 para evitar errores de texto y asegurar la carga limpia en PC
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            
+            return res.end(JSON.stringify({ 
+                success: true, 
+                viajes: result.rows, 
+                modoAdmin: typeof tienePermisosModerador !== 'undefined' ? tienePermisosModerador : false, 
+                idBikerLogueado: usuarioSesionActiva ? usuarioSesionActiva.id : null 
+            }));
         } catch (err) {
-            res.writeHead(500); return res.end(JSON.stringify({ success: false }));
+            console.error('❌ Error en el GET de crónicas:', err);
+            res.writeHead(500, { 'Content-Type': 'application/json' }); 
+            return res.end(JSON.stringify({ success: false, error: 'Error interno al leer la galería.' }));
         }
     }
 

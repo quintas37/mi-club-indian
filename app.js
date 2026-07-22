@@ -249,7 +249,7 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 } catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
-      /* ================= API: SUBIR CRÓNICA PERMANENTE (IMGBB CLOUD - REVISADA) ================= */
+      /* ================= API: SUBIR CRÓNICA PERMANENTE (SOPORTE MULTI-FOTO) ================= */
 if (req.url === '/api/viajes/subir' && req.method === 'POST') {
     if (!usuarioSesionActiva) { 
         res.writeHead(401, { 'Content-Type': 'application/json' }); 
@@ -269,7 +269,6 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
                 return res.end(JSON.stringify({ success: false, error: 'Falta boundary en la petición' })); 
             }
             
-            //  CORRECCIÓN CRÍTICA: Accedemos al índice [1] del match de la expresión regular
             let boundaryLimpio = boundaryMatch[1].replace(/["']/g, '');
             if (!boundaryLimpio.startsWith('--')) boundaryLimpio = '--' + boundaryLimpio;
             const boundaryBuffer = Buffer.from(boundaryLimpio);
@@ -282,7 +281,7 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
             }
             
             let campos = {}; 
-            let urlsImgbb = [];
+            let promesasImgbb = []; // Guardaremos las peticiones en paralelo
             
             for (let i = 0; i < posiciones.length - 1; i++) {
                 const inicio = posiciones[i] + boundaryBuffer.length + 2; 
@@ -294,33 +293,25 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
                 const cabecera = parteBuffer.subarray(0, indiceCuerpo).toString('utf-8'); 
                 const cuerpo = parteBuffer.subarray(indiceCuerpo + 4, parteBuffer.length - 2);
                 
+                // Detecta el input de fotos (acepta nombres simples o arreglos de inputs)
                 if (cabecera.includes('name="fotoViaje"') || cabecera.includes('filename=')) {
                     if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
                     
                     const imagenBase64 = cuerpo.toString('base64');
-
-                    // Asegúrate de que el proceso tenga la API KEY correcta de ImgBB
                     const apiKey = process.env.IMGBB_API_KEY || 'AQUÍ_TU_LLAVE_REAL_DE_IMGBB';
                     const urlImgbbApi = `https://imgbb.com{apiKey}`;
                     
                     const formularioFormData = new URLSearchParams();
                     formularioFormData.append('image', imagenBase64);
 
-                    const respuestaApi = await fetch(urlImgbbApi, {
-                        method: 'POST',
-                        body: formularioFormData,
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-                    });
-
-                    const resultadoJson = await respuestaApi.json();
-                    
-                    if (resultadoJson && resultadoJson.success && resultadoJson.data) {
-                        // Guardamos la propiedad url directa de la imagen (.jpg / .png)
-                        urlsImgbb.push(resultadoJson.data.url); 
-                    } else {
-                        console.error('Respuesta rechazada por ImgBB:', resultadoJson);
-                        throw new Error('La API de ImgBB rechazó la subida de la imagen.');
-                    }
+                    // Almacenamos la promesa para ejecutar la subida múltiple eficientemente
+                    promesasImgbb.push(
+                        fetch(urlImgbbApi, {
+                            method: 'POST',
+                            body: formularioFormData,
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                        }).then(r => r.json())
+                    );
                 } else {
                     const posName = cabecera.indexOf('name="');
                     if (posName !== -1) { 
@@ -329,30 +320,43 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
                 }
             }
             
-            if (urlsImgbb.length === 0) { 
+            if (promesasImgbb.length === 0) { 
                 res.writeHead(400, { 'Content-Type': 'application/json' }); 
-                return res.end(JSON.stringify({ success: false, error: 'No se recibieron imágenes procesables.' })); 
+                return res.end(JSON.stringify({ success: false, error: 'No se recibieron imágenes válidas.' })); 
             }
             
+            // Resolvemos todas las subidas de imágenes a ImgBB en paralelo
+            const respuestasCompletas = await Promise.all(promesasImgbb);
+            let urlsImgbb = [];
+            
+            for (const resultadoJson of respuestasCompletas) {
+                if (resultadoJson && resultadoJson.success && resultadoJson.data) {
+                    urlsImgbb.push(resultadoJson.data.url); // Enlace directo HTTPS (.jpg)
+                } else {
+                    console.error('Fallo parcial en ImgBB:', resultadoJson);
+                }
+            }
+            
+            if (urlsImgbb.length === 0) {
+                throw new Error('Ninguna imagen pudo ser cargada con éxito en ImgBB.');
+            }
+            
+            // Guardamos el arreglo con los enlaces de todas las fotos en PostgreSQL
             await pool.query(
                 'INSERT INTO viajes_galeria (id, titulo_viaje, descripcion, ruta_origen_destino, urls_fotos, nombre_completo) VALUES ($1, $2, $3, $4, $5, $6)',
                 [Date.now(), campos.titulo || 'Rodada', campos.descripcion || '', campos.ruta || '', urlsImgbb, usuarioSesionActiva.nombre]
             );
             
             res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' }); 
-            res.end(JSON.stringify({ success: true, message: '¡Crónica guardada en la nube de forma permanente!' }));
+            res.end(JSON.stringify({ success: true, message: '¡Crónica y fotografías publicadas con éxito!' }));
         } catch (err) {
-            console.error('❌ Error crítico en el servidor durante la subida:', err.message);
+            console.error('❌ Error crítico en el proceso de subida:', err.message);
             res.writeHead(500, { 'Content-Type': 'application/json' }); 
             res.end(JSON.stringify({ success: false, detalle: err.message }));
         }
     });
     return;
 }
-    // SI LA RUTA NO COINCIDE CON NINGUNA API O ARCHIVO:
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Ruta no encontrada');
-});
 
 server.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);

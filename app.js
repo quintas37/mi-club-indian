@@ -249,7 +249,7 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 } catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
-      /* ================= API: SUBIR CRÓNICA PERMANENTE (SOPORTE MULTI-FOTO) ================= */
+      /* ================= API: SUBIR CRÓNICA PERMANENTE (SOPORTE MULTI-FOTO LIMPIO) ================= */
 if (req.url === '/api/viajes/subir' && req.method === 'POST') {
     if (!usuarioSesionActiva) { 
         res.writeHead(401, { 'Content-Type': 'application/json' }); 
@@ -267,7 +267,7 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
             if (!boundaryMatch || !boundaryMatch[1]) { 
                 res.writeHead(400, { 'Content-Type': 'application/json' }); 
                 return res.end(JSON.stringify({ success: false, error: 'Falta boundary en la petición' })); 
-                }
+            }
             
             let boundaryLimpio = boundaryMatch[1].replace(/["']/g, '');
             if (!boundaryLimpio.startsWith('--')) boundaryLimpio = '--' + boundaryLimpio;
@@ -281,7 +281,7 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
             }
             
             let campos = {}; 
-            let promesasImgbb = []; // Guardaremos las peticiones en paralelo
+            let promesasImgbb = [];
             
             for (let i = 0; i < posiciones.length - 1; i++) {
                 const inicio = posiciones[i] + boundaryBuffer.length + 2; 
@@ -293,18 +293,16 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
                 const cabecera = parteBuffer.subarray(0, indiceCuerpo).toString('utf-8'); 
                 const cuerpo = parteBuffer.subarray(indiceCuerpo + 4, parteBuffer.length - 2);
                 
-                // Detecta el input de fotos (acepta nombres simples o arreglos de inputs)
                 if (cabecera.includes('name="fotoViaje"') || cabecera.includes('filename=')) {
                     if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
                     
                     const imagenBase64 = cuerpo.toString('base64');
                     const apiKey = process.env.IMGBB_API_KEY || 'AQUÍ_TU_LLAVE_REAL_DE_IMGBB';
-                    //  CÓDIGO CORREGIDO AL 100%:
                     const urlImgbbApi = 'https://imgbb.com' + apiKey;
+                    
                     const formularioFormData = new URLSearchParams();
                     formularioFormData.append('image', imagenBase64);
 
-                    // Almacenamos la promesa para ejecutar la subida múltiple eficientemente
                     promesasImgbb.push(
                         fetch(urlImgbbApi, {
                             method: 'POST',
@@ -325,13 +323,12 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
                 return res.end(JSON.stringify({ success: false, error: 'No se recibieron imágenes válidas.' })); 
             }
             
-            // Resolvemos todas las subidas de imágenes a ImgBB en paralelo
             const respuestasCompletas = await Promise.all(promesasImgbb);
             let urlsImgbb = [];
             
             for (const resultadoJson of respuestasCompletas) {
                 if (resultadoJson && resultadoJson.success && resultadoJson.data) {
-                    urlsImgbb.push(resultadoJson.data.url); // Enlace directo HTTPS (.jpg)
+                    urlsImgbb.push(resultadoJson.data.url); 
                 } else {
                     console.error('Fallo parcial en ImgBB:', resultadoJson);
                 }
@@ -341,7 +338,6 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
                 throw new Error('Ninguna imagen pudo ser cargada con éxito en ImgBB.');
             }
             
-            // Guardamos el arreglo con los enlaces de todas las fotos en PostgreSQL
             await pool.query(
                 'INSERT INTO viajes_galeria (id, titulo_viaje, descripcion, ruta_origen_destino, urls_fotos, nombre_completo) VALUES ($1, $2, $3, $4, $5, $6)',
                 [Date.now(), campos.titulo || 'Rodada', campos.descripcion || '', campos.ruta || '', urlsImgbb, usuarioSesionActiva.nombre]
@@ -356,7 +352,6 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
         }
     });
     return;
-}
 }
 
 server.listen(PORT, () => {

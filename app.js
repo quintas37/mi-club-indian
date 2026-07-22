@@ -354,6 +354,7 @@ if (req.url === '/api/viajes/subir' && req.method === 'POST') {
     });
     return;
 }
+}
 server.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
 });

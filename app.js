@@ -3,6 +3,9 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
+// Cargamos formidable para procesar las fotos de forma nativa y segura sin romper la sintaxis
+const formidable = require('formidable');
+
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = __dirname;
 
@@ -192,8 +195,7 @@ const server = http.createServer(async (req, res) => {
         req.on('end', async () => {
             try {
                 const data = JSON.parse(body);
-                const result = await pool.query('SELECT * FROM usuarios WHERE usuario = $1', [data.usuario.trim().toLowerCase()]);
-
+const result = await pool.query('SELECT * FROM usuarios WHERE usuario = $1', [data.usuario.trim().toLowerCase()]);
 if (result.rows.length === 0) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "No existe el usuario." })); }
 const biker = result.rows[0];
 if (!biker.aprobado) { res.writeHead(403, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ success: false, error: "Tu cuenta está en revisión por la Mesa Directiva." })); }
@@ -246,91 +248,56 @@ res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringi
 } catch (err) { res.writeHead(500); res.end(); }
 }); return;
 }
-/* ================= API: SUBIR CRÓNICA PERMANENTE (SOPORTE MULTI-FOTO CORREGIDO AL 100%) ================= */
+/* ================= API: SUBIR CRÓNICA PERMANENTE (VÍA FORMIDABLE NATIVO Y SEGURO) ================= */
 if (req.url === '/api/viajes/subir' && req.method === 'POST') {
 if (!usuarioSesionActiva) {
 res.writeHead(401, { 'Content-Type': 'application/json' });
 return res.end(JSON.stringify({ success: false, error: 'Sesión no activa' }));
 }
-let bodyBuffer = [];
-req.on('data', chunk => { bodyBuffer.push(chunk); });
-req.on('end', async () => {
+const form = new formidable.IncomingForm({ multiples: true });
+form.parse(req, async (err, fields, files) => {
+if (err) {
+res.writeHead(500, { 'Content-Type': 'application/json' });
+return res.end(JSON.stringify({ success: false, error: 'Error al parsear el formulario' }));
+}
 try {
-const bufferCompleto = Buffer.concat(bodyBuffer);
-const contentTypeHeader = req.headers['content-type'] || '';
-const boundaryMatch = contentTypeHeader.match(/boundary=(.+)/);
-if (!boundaryMatch || !boundaryMatch[1]) {
-res.writeHead(400, { 'Content-Type': 'application/json' });
-return res.end(JSON.stringify({ success: false, error: 'Falta boundary en la petición' }));
+let archivosFotos = [];
+if (files.fotoViaje) {
+archivosFotos = Array.isArray(files.fotoViaje) ? files.fotoViaje : [files.fotoViaje];
 }
-// CORRECCIÓN EN EL COMODÍN [1] DE LA EXPRESIÓN REGULAR
-let boundaryLimpio = boundaryMatch[1].replace(/["']/g, '');
-if (!boundaryLimpio.startsWith('--')) boundaryLimpio = '--' + boundaryLimpio;
-const boundaryBuffer = Buffer.from(boundaryLimpio);
-let posiciones = [];
-let index = bufferCompleto.indexOf(boundaryBuffer);
-while (index !== -1) {
-posiciones.push(index);
-index = bufferCompleto.indexOf(boundaryBuffer, index + boundaryBuffer.length);
-}
-let campos = {};
-let promesasImgbb = [];
-for (let i = 0; i < posiciones.length - 1; i++) {
-const inicio = posiciones[i] + boundaryBuffer.length + 2;
-const fin = posiciones[i+1];
-const parteBuffer = bufferCompleto.subarray(inicio, fin);
-const indiceCuerpo = parteBuffer.indexOf('\r\n\r\n');
-if (indiceCuerpo === -1) continue;
-const cabecera = parteBuffer.subarray(0, indiceCuerpo).toString('utf-8');
-const cuerpo = parteBuffer.subarray(indiceCuerpo + 4, parteBuffer.length - 2);
-// CORRECCIÓN: Se cambió "cabecheader" por "cabecera" para evitar el error sintáctico
-if (cabecera.includes('name="fotoViaje"') || cabecera.includes('filename=')) {
-if (cabecera.includes('filename=""') || cuerpo.length < 100) continue;
-const imagenBase64 = cuerpo.toString('base64');
+let urlsImgbb = [];
+for (const archivo of archivosFotos) {
+if (!archivo.filepath) continue;
+const dataImagen = fs.readFileSync(archivo.filepath);
+const imagenBase64 = dataImagen.toString('base64');
 const apiKey = process.env.IMGBB_API_KEY || '';
 const urlImgbbApi = 'imgbb.com' + apiKey;
-const formularioFormData = new URLSearchParams();
-formularioFormData.append('image', imagenBase64);
-promesasImgbb.push(
-fetch(urlImgbbApi, {
+const params = new URLSearchParams();
+params.append('image', imagenBase64);
+const respuesta = await fetch(urlImgbbApi, {
 method: 'POST',
-body: formularioFormData,
+body: params,
 headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-}).then(r => r.json())
-);
-} else {
-const posName = cabecera.indexOf('name="');
-if (posName !== -1) {
-campos[cabecera.substring(posName + 6, cabecera.indexOf('"', posName + 6)).trim()] = cuerpo.toString('utf-8').trim();
-}
-}
-}
-if (promesasImgbb.length === 0) {
-res.writeHead(400, { 'Content-Type': 'application/json' });
-return res.end(JSON.stringify({ success: false, error: 'No se recibieron imágenes válidas.' }));
-}
-const respuestasCompletas = await Promise.all(promesasImgbb);
-let urlsImgbb = [];
-for (const resultadoJson of respuestasCompletas) {
+});
+const resultadoJson = await respuesta.json();
 if (resultadoJson && resultadoJson.success && resultadoJson.data) {
 urlsImgbb.push(resultadoJson.data.url);
-} else {
-console.error('Fallo parcial en ImgBB:', resultadoJson);
 }
 }
 if (urlsImgbb.length === 0) {
-throw new Error('Ninguna imagen pudo ser cargada con éxito en ImgBB.');
+res.writeHead(400, { 'Content-Type': 'application/json' });
+return res.end(JSON.stringify({ success: false, error: 'No se procesaron imágenes en la nube.' }));
 }
 await pool.query(
 'INSERT INTO viajes_galeria (id, titulo_viaje, descripcion, ruta_origen_destino, urls_fotos, nombre_completo) VALUES ($1, $2, $3, $4, $5, $6)',
-[Date.now(), campos.titulo || 'Rodada', campos.descripcion || '', campos.ruta || '', urlsImgbb, usuarioSesionActiva.nombre]
+[Date.now(), fields.titulo || 'Rodada', fields.descripcion || '', fields.ruta || '', urlsImgbb, usuarioSesionActiva.nombre]
 );
 res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
 return res.end(JSON.stringify({ success: true, message: '¡Crónica y fotografías publicadas con éxito!' }));
-} catch (err) {
-console.error('❌ Error crítico en el proceso de subida:', err.message);
+} catch (errorInterno) {
+console.error(errorInterno);
 res.writeHead(500, { 'Content-Type': 'application/json' });
-return res.end(JSON.stringify({ success: false, detalle: err.message }));
+return res.end(JSON.stringify({ success: false, error: errorInterno.message }));
 }
 });
 return;
@@ -339,4 +306,3 @@ return;
 server.listen(PORT, () => {
 console.log(Servidor corriendo en el puerto ${PORT});
 });
-
